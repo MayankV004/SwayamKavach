@@ -21,8 +21,8 @@ services:
 
   api:
     build:
-      context: ../..
-      dockerfile: infra/docker/Dockerfile.api
+      context: ../../backend
+      dockerfile: ../infra/docker/Dockerfile.api
     container_name: swayamkavach-api
     restart: unless-stopped
     ports:
@@ -36,8 +36,8 @@ services:
 
   serve_a:
     build:
-      context: ../..
-      dockerfile: infra/docker/Dockerfile.serving
+      context: ../../backend
+      dockerfile: ../infra/docker/Dockerfile.serving
     container_name: swayamkavach-serve-a
     restart: unless-stopped
     ports:
@@ -49,8 +49,8 @@ services:
 
   serve_b:
     build:
-      context: ../..
-      dockerfile: infra/docker/Dockerfile.serving
+      context: ../../backend
+      dockerfile: ../infra/docker/Dockerfile.serving
     container_name: swayamkavach-serve-b
     restart: unless-stopped
     ports:
@@ -62,8 +62,8 @@ services:
 
   consumer:
     build:
-      context: ../..
-      dockerfile: infra/docker/Dockerfile.consumer
+      context: ../../backend
+      dockerfile: ../infra/docker/Dockerfile.consumer
     container_name: swayamkavach-consumer
     restart: unless-stopped
     environment:

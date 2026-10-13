@@ -1,31 +1,38 @@
-.PHONY: sync test lint lint-fix api serving-a serving-b consumer docker-up docker-down clean
+.PHONY: sync test lint lint-fix api serving-a serving-b consumer frontend frontend-build docker-up docker-down clean
 
-# UV Environment & Dependencies
+# Backend Environment & Dependencies (uv)
 sync:
-	uv sync
+	cd backend && uv sync
 
 # Code Quality & Tests
 test:
-	uv run pytest
+	cd backend && uv run pytest
 
 lint:
-	uv run ruff check .
+	cd backend && uv run ruff check .
 
 lint-fix:
-	uv run ruff check --fix .
+	cd backend && uv run ruff check --fix .
 
-# Local Services Execution
+# Local Backend Services
 api:
-	uv run uvicorn swayamkavach.api.main:app --reload --port 8000
+	cd backend && uv run uvicorn swayamkavach.api.main:app --reload --port 8000
 
 serving-a:
-	SLOT_ID=A RELEASE_ID=R1 uv run uvicorn swayamkavach.serving.app:app --reload --port 8001
+	cd backend && SLOT_ID=A RELEASE_ID=R1 uv run uvicorn swayamkavach.serving.app:app --reload --port 8001
 
 serving-b:
-	SLOT_ID=B RELEASE_ID=R1 uv run uvicorn swayamkavach.serving.app:app --reload --port 8002
+	cd backend && SLOT_ID=B RELEASE_ID=R1 uv run uvicorn swayamkavach.serving.app:app --reload --port 8002
 
 consumer:
-	uv run python src/swayamkavach/inference_consumer.py
+	cd backend && uv run python src/swayamkavach/inference_consumer.py
+
+# Frontend Development
+frontend:
+	cd frontend && npm run dev
+
+frontend-build:
+	cd frontend && npm run build
 
 # Docker Compose Infrastructure
 docker-up:
@@ -35,5 +42,5 @@ docker-down:
 	docker compose -f infra/compose/compose.dev.yaml down
 
 clean:
-	rm -rf .pytest_cache .ruff_cache *.db
+	rm -rf backend/.pytest_cache backend/.ruff_cache backend/*.db frontend/.next frontend/out
 	find . -type d -name __pycache__ -exec rm -rf {} +

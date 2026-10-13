@@ -5,7 +5,7 @@ COPY --from=uv_bin /uv /bin/uv
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock .python-version ./
+COPY pyproject.toml uv.lock .python-version README.md ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY schemas/ ./schemas/

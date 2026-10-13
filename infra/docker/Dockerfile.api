@@ -7,7 +7,7 @@ COPY --from=uv_bin /uv /bin/uv
 WORKDIR /app
 
 # Copy dependency specifications first for cache efficiency
-COPY pyproject.toml uv.lock .python-version ./
+COPY pyproject.toml uv.lock .python-version README.md ./
 
 # Install project dependencies
 RUN uv sync --frozen --no-dev --no-install-project

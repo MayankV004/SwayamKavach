@@ -359,46 +359,61 @@ Do not spend all of Week 1 polishing model accuracy or installing the entire obs
 ## Suggested monorepo
 ```text
 swayamkavach/
-  .python-version
-  pyproject.toml
-  uv.lock
-  docs/decisions/
-  schemas/
-  policies/
-  src/swayamkavach/
-    api/
-    db/migrations/
-    features/
-    replay/
-    labels/
-    monitoring/
-    training/
-    evaluation/
-    agents/
-    jobs/
-    serving/
-    deployment/
-    inference_consumer.py
+  backend/
+    .python-version
+    pyproject.toml
+    uv.lock
+    README.md
+    schemas/
+    policies/
+    manifests/
+    releases/
+    experiments/scenarios/
+    data/
+      raw/
+      processed/
+    src/swayamkavach/
+      api/
+      db/migrations/
+      features/
+      replay/
+      labels/
+      monitoring/
+      training/
+      evaluation/
+      agents/
+      jobs/
+      serving/
+      deployment/
+      inference_consumer.py
+    tests/
+      unit/
+      contracts/
+      integration/
+      e2e/
+    dvc.yaml
+    params.yaml
   frontend/
+    package.json
+    tsconfig.json
+    next.config.ts
+    src/
+      app/
+      components/
+      types/
   infra/
     compose/
+    docker/
     nginx/
     prometheus/
     grafana/
-  manifests/
-  releases/
-  experiments/scenarios/
-  tests/
-    unit/
-    contracts/
-    integration/
-    e2e/
+  docs/decisions/
   .github/workflows/
-  dvc.yaml
-  params.yaml
+  Makefile
+  README.md
 ```
 
-Use these names as an initial convention, not a reason to reorganize existing code without inspection. Bulk datasets/model artifacts belong in governed storage, not Git. Deployment privileges belong in the narrow controller even if its source sits in this monorepo.
+Use these names as an initial convention with clear separation of concerns between backend (Python/uv) and frontend (Next.js/TypeScript). Bulk datasets/model artifacts belong in governed storage (DVC), not Git. Deployment privileges belong in the narrow controller even if its source sits in this monorepo.
 
 ## Task completion template
 For every numbered step create a ticket containing: phase/step ID; owner and reviewer; dependencies; implementation scope; expected file/API/schema changes; test command/fixture; expected result; evidence link; failure/rollback behavior; unresolved decisions. 'Done' means merged, tested and demonstrated—not merely that code exists.
