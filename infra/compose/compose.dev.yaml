@@ -1,0 +1,81 @@
+name: swayamkavach-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: swayamkavach-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: swayam_user
+      POSTGRES_PASSWORD: swayam_secret_password
+      POSTGRES_DB: swayamkavach
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U swayam_user -d swayamkavach"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.api
+    container_name: swayamkavach-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://swayam_user:swayam_secret_password@postgres:5432/swayamkavach
+      ENVIRONMENT: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  serve_a:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.serving
+    container_name: swayamkavach-serve-a
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      SLOT_ID: A
+      RELEASE_ID: R1
+      DECISION_THRESHOLD: "0.50"
+
+  serve_b:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.serving
+    container_name: swayamkavach-serve-b
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      SLOT_ID: B
+      RELEASE_ID: R1
+      DECISION_THRESHOLD: "0.50"
+
+  consumer:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.consumer
+    container_name: swayamkavach-consumer
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://swayam_user:swayam_secret_password@postgres:5432/swayamkavach
+      SLOT_A_URL: http://serve_a:8001
+      CONSUMER_BATCH_SIZE: "50"
+      CONSUMER_POLL_INTERVAL: "1.0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      serve_a:
+        condition: service_started
+
+volumes:
+  postgres_data:

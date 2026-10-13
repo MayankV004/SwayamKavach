@@ -1,0 +1,67 @@
+# Python & uv
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing & Coverage
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Node & Frontend
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+.npm
+*.tsbuildinfo
+
+# Data, Large Artifacts, and DVC
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+.dvc/cache/
+.dvc/tmp/
+
+# MLflow, Database & Local Stores
+mlruns/
+.mlflow/
+*.db
+*.sqlite*
+
+# Environment and Secrets
+.env
+.env.local
+*.pem
+*.key
+secrets/
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
