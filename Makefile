@@ -1,4 +1,4 @@
-.PHONY: sync test lint lint-fix api serving-a serving-b consumer frontend frontend-lint frontend-build check docker-up docker-down clean
+.PHONY: sync test lint lint-fix api serving-a serving-b consumer frontend frontend-lint frontend-build check docker-up docker-down clean rehearse
 
 # Backend Environment & Dependencies (uv)
 sync:
@@ -39,6 +39,10 @@ frontend-build:
 
 # Unified Quality Gate (Run before pushing / opening PR)
 check: lint test frontend-lint frontend-build
+
+# Automated Clean-Room Environment Restore Rehearsal (Phase 9 Gate G9)
+rehearse:
+	./scripts/rehearse_restore.sh
 
 # Docker Compose Infrastructure
 docker-up:
