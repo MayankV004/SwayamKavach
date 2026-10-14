@@ -49,13 +49,12 @@ docker compose -f infra/compose/compose.dev.yaml up -d
 - `tests/`: Contract, unit, and integration tests
 - `docs/`: System architecture, PRDs, and phase-wise implementation specifications
 - `memory.md`: Living record of system architecture, phase state, and changelog
+- `PROJECT_STATUS.md`: Official project milestone tracker and phase completion log
 
-## Contributing & Team Guidelines
+## Contributing & Project Progress
 Working in this repository follows strict engineering rules, DARI safety invariants, conventional commits, and living documentation practices.
 
-Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** for:
-- Local setup and branch naming conventions
-- Pre-commit quality gate (`make check`)
-- Procedure for opening pull requests and code reviews
-- The `memory.md` update policy
+- **Project Roadmap & Milestones**: See **[PROJECT_STATUS.md](PROJECT_STATUS.md)** to track active deliverables, phase completion logs, and sprint tasks.
+- **Contribution Guidelines**: Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** for local setup, Zero-Trust rules, 4-person role mapping, `make check` quality gates, and code review policy.
+
 

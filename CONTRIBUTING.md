@@ -326,21 +326,18 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ---
 
-## 10. The Living Record (`memory.md`) Policy
+## 10. Living Records Policy (`memory.md` & `PROJECT_STATUS.md`)
 
-`memory.md` is our **shared team memory**. Because multiple teammates collaborate across phases, all architectural decisions, phase progress, and changes must be recorded.
+Our project relies on two living documents to ensure complete team alignment and historical continuity:
 
-Whenever you make a contribution:
-1. Open [memory.md](memory.md).
-2. Under **Section 4: Changelog & Modification History**, add an entry:
-   ```markdown
-   ### [YYYY-MM-DD] — <Brief Title>
-   - **Action**: Description of what was added or changed.
-   - **Evidence**: Test results, commands run (e.g. `make check`: 13 passed, 0 lint errors).
-   - **Phase Status**: (e.g. Advanced Phase 2 deliverable).
-   ```
-3. If your PR completes or advances deliverables in **Section 2: Phase-Wise Implementation Roadmap**, update the corresponding phase status badge (`🔄 In Progress` or `✅ Completed`).
-4. Commit `memory.md` together with your code changes.
+1. **[`memory.md`](memory.md)**: Shared architectural memory and chronological changelog.
+   - For every merged change, append a dated entry under **Section 4: Changelog & Modification History** with action summary and test evidence.
+2. **[`PROJECT_STATUS.md`](PROJECT_STATUS.md)**: Official phase milestone tracker, progress gauge, and exit-gate sign-off.
+   - Whenever completing or advancing a deliverable or phase:
+     - Check off completed task boxes in Section 3.
+     - Update the Phase Status badge (`🔄 IN PROGRESS` or `✅ COMPLETED`) in Section 2.
+     - When an entire phase is finished and verified via `make check`, log a sign-off entry in the **Phase Completion Log (Section 5)**.
+3. Commit `memory.md` and `PROJECT_STATUS.md` together with your code changes.
 
 ---
 
