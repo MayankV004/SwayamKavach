@@ -1,0 +1,7 @@
+INFO:     Started server process [246371]
+INFO:     Waiting for application startup.
+2026-10-15 03:32:22,596 [INFO] swayamkavach.api: Initializing SwayamKavach API and database schemas...
+2026-10-15 03:32:22,597 [INFO] swayamkavach.api: Database initialized successfully.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:56348 - "GET /api/v1/health HTTP/1.1" 200 OK
