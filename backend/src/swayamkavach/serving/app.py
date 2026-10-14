@@ -72,6 +72,7 @@ app = FastAPI(
 )
 
 
+@app.get("/health", status_code=status.HTTP_200_OK)
 @app.get("/livez", status_code=status.HTTP_200_OK)
 def livez():
     """Liveness probe."""
