@@ -40,8 +40,9 @@ frontend/build/
 **/data/raw/*.csv*
 **/data/raw/*.pcap*
 **/data/raw/*.parquet*
-**/data/processed/*.csv*
+**/data/processed/*.csv
 **/data/processed/*.parquet*
+!**/data/processed/*.csv.gz
 !**/data/raw/.gitkeep
 !**/data/processed/.gitkeep
 !*.dvc

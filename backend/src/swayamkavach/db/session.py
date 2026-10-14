@@ -5,6 +5,7 @@ from collections.abc import Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
@@ -13,8 +14,11 @@ DATABASE_URL = os.getenv(
 
 # SQLite needs connect_args check_same_thread=False
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine_kwargs: dict = {"connect_args": connect_args}
+if ":memory:" in DATABASE_URL:
+    engine_kwargs["poolclass"] = StaticPool
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
