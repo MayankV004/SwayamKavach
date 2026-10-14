@@ -1,0 +1,33 @@
+# SwayamKavach — GitHub Code Ownership & Review Enforcers
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# -------------------------------------------------------------
+# 1. Critical Shared Contracts (Frozen - Technical Lead review required)
+# -------------------------------------------------------------
+/backend/schemas/                                   @MayankV004
+/frontend/src/types/contracts.ts                    @MayankV004
+
+# -------------------------------------------------------------
+# 2. AI Agents, Orchestration, ML & Data Pipelines (Technical Lead)
+# -------------------------------------------------------------
+/backend/src/swayamkavach/features/                 @MayankV004
+/backend/src/swayamkavach/damage/                   @MayankV004
+/backend/src/swayamkavach/dari/                     @MayankV004
+/backend/src/swayamkavach/agents/                   @MayankV004
+/backend/src/swayamkavach/evaluation/               @MayankV004
+/backend/training/                                  @MayankV004
+/backend/releases/                                  @MayankV004
+
+# -------------------------------------------------------------
+# 3. Backend APIs, Database & Serving Runtime (Backend Engineer)
+# -------------------------------------------------------------
+/backend/src/swayamkavach/api/                      @MayankV004
+/backend/src/swayamkavach/db/                       @MayankV004
+/backend/src/swayamkavach/serving/                  @MayankV004
+/backend/src/swayamkavach/inference_consumer.py     @MayankV004
+/infra/                                             @MayankV004
+
+# -------------------------------------------------------------
+# 4. Frontend Operator Dashboard (Frontend Engineers)
+# -------------------------------------------------------------
+/frontend/                                          @MayankV004

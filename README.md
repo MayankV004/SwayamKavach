@@ -27,11 +27,12 @@ source .venv/bin/activate
 
 ### 2. Linting and Testing
 ```bash
-# Run code linter
-uv run ruff check .
+# Run unified quality gate (backend + frontend)
+make check
 
-# Run test suite
-uv run pytest
+# Or test backend individually
+cd backend && uv run pytest
+cd backend && uv run ruff check .
 ```
 
 ### 3. Local Development Infrastructure
@@ -47,3 +48,14 @@ docker compose -f infra/compose/compose.dev.yaml up -d
 - `infra/`: Docker Compose and Nginx reverse proxy configurations
 - `tests/`: Contract, unit, and integration tests
 - `docs/`: System architecture, PRDs, and phase-wise implementation specifications
+- `memory.md`: Living record of system architecture, phase state, and changelog
+
+## Contributing & Team Guidelines
+Working in this repository follows strict engineering rules, DARI safety invariants, conventional commits, and living documentation practices.
+
+Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** for:
+- Local setup and branch naming conventions
+- Pre-commit quality gate (`make check`)
+- Procedure for opening pull requests and code reviews
+- The `memory.md` update policy
+

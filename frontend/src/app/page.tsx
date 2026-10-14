@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
   AlertOctagon,
@@ -42,8 +42,7 @@ export default function Dashboard() {
     updated_at: "2026-10-14T00:00:00Z",
   });
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = useCallback(async () => {
     try {
       const res = await fetch("http://localhost:8000/api/v1/health");
       setBackendHealthy(res.ok);
@@ -62,12 +61,40 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 10000);
-    return () => clearInterval(interval);
+    let ignore = false;
+    async function fetchData() {
+      try {
+        const res = await fetch("http://localhost:8000/api/v1/health");
+        if (!ignore) setBackendHealthy(res.ok);
+      } catch {
+        if (!ignore) setBackendHealthy(false);
+      }
+
+      try {
+        const res = await fetch("http://localhost:8000/api/v1/alerts?limit=10");
+        if (res.ok && !ignore) {
+          const data = await res.json();
+          setAlerts(data);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+
+    void fetchData();
+    const interval = setInterval(() => {
+      void fetchData();
+    }, 10000);
+
+    return () => {
+      ignore = true;
+      clearInterval(interval);
+    };
   }, []);
 
   const sendTestBatch = async () => {
@@ -145,8 +172,9 @@ export default function Dashboard() {
       } else {
         setBatchFeedback("Failed to ingest batch. Verify backend is running.");
       }
-    } catch (e: any) {
-      setBatchFeedback(`Connection error: ${e.message}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      setBatchFeedback(`Connection error: ${message}`);
     } finally {
       setSubmittingBatch(false);
     }

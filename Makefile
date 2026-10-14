@@ -1,4 +1,4 @@
-.PHONY: sync test lint lint-fix api serving-a serving-b consumer frontend frontend-build docker-up docker-down clean
+.PHONY: sync test lint lint-fix api serving-a serving-b consumer frontend frontend-lint frontend-build check docker-up docker-down clean
 
 # Backend Environment & Dependencies (uv)
 sync:
@@ -31,8 +31,14 @@ consumer:
 frontend:
 	cd frontend && npm run dev
 
+frontend-lint:
+	cd frontend && npm run lint
+
 frontend-build:
 	cd frontend && npm run build
+
+# Unified Quality Gate (Run before pushing / opening PR)
+check: lint test frontend-lint frontend-build
 
 # Docker Compose Infrastructure
 docker-up:

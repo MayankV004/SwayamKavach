@@ -64,6 +64,20 @@ Monitor → Detect → Diagnose → Select Repair → Build Candidate → Valida
 
 ## 4. Changelog & Modification History
 
+### [2026-10-14] — Team Contribution Guidelines, Zero-Trust Rules & 4-Person Role Mapping
+- **Action**: Established team contribution standards, Zero-Trust conflict prevention rules, directory ownership (`CODEOWNERS`), and unified quality gates.
+- **Key Deliverables**:
+  - Updated [CONTRIBUTING.md](file:///home/streamliner/btp/CONTRIBUTING.md):
+    - Added **Section 2 (Team Role Distribution)**: mapped out the 4-member allocation (Lead: AI Agents/ML/Data Pipelines; Member 2: Backend & Serving Infra; Member 3 & 4: Frontend Core & DARI Governance).
+    - Added **Section 3 (Zero-Trust Conflict Prevention)**: strict directory isolation, frozen data contracts (`extra = "forbid"`), in-memory DB isolation, boundary mocking, and local pre-PR rebase/merge requirements.
+  - Created [`.github/CODEOWNERS`](file:///home/streamliner/btp/.github/CODEOWNERS): enforces code ownership by directory on GitHub pull requests.
+  - Created [.github/pull_request_template.md](file:///home/streamliner/btp/.github/pull_request_template.md): PR template with DARI safety checklist, test output requirements, and pre-merge verification.
+  - Updated [.github/workflows/ci.yaml](file:///home/streamliner/btp/.github/workflows/ci.yaml): upgraded `setup-uv@v5`, added monorepo lockfile caching, `uv sync --locked`, in-memory DB isolation, concurrency cancellation, and parallel `frontend-test` job.
+  - Enhanced [Makefile](file:///home/streamliner/btp/Makefile): added `frontend-lint` and unified `make check` target running full stack verification (backend ruff + backend pytest + frontend eslint + frontend build).
+  - Fixed frontend ESLint issues in [page.tsx](file:///home/streamliner/btp/frontend/src/app/page.tsx) and [api.ts](file:///home/streamliner/btp/frontend/src/lib/api.ts) for React 19 compliance.
+- **Diagnostics**:
+  - Ran `make check`: 13 backend tests passed in 0.30s, 0 Ruff errors, 0 ESLint errors/warnings, Next.js 16 build succeeded.
+
 ### [2026-10-14] — Repository Diagnostics & Project Memory Initialization
 - **Action**: Initialized [memory.md](file:///home/streamliner/btp/memory.md) to maintain ongoing development context, phase status, and code changes.
 - **Diagnostics**:
@@ -73,3 +87,4 @@ Monitor → Detect → Diagnose → Select Repair → Build Candidate → Valida
 - **Next Planned Work**:
   - Complete Phase 1: Train baseline model R1, save model bundle artifact, and implement reproducible feature split manifest.
   - Complete Phase 2: Connect real model inference serving in [inference_consumer.py](file:///home/streamliner/btp/backend/src/swayamkavach/inference_consumer.py) and hook up real API endpoints to the frontend dashboard.
+
