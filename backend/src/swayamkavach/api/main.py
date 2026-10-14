@@ -7,8 +7,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from swayamkavach.api.routes.alerts import router as alerts_router
+from swayamkavach.api.routes.deployment import router as deployment_router
+from swayamkavach.api.routes.evaluation import router as evaluation_router
+from swayamkavach.api.routes.experiments import router as experiments_router
 from swayamkavach.api.routes.health import router as health_router
 from swayamkavach.api.routes.ingestion import router as ingestion_router
+from swayamkavach.api.routes.labels import router as labels_router
+from swayamkavach.api.routes.lifecycle import router as lifecycle_router
 from swayamkavach.db.session import init_db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -45,6 +50,14 @@ app.add_middleware(
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(ingestion_router, prefix="/api/v1")
 app.include_router(alerts_router, prefix="/api/v1")
+app.include_router(lifecycle_router, prefix="/api/v1")
+app.include_router(labels_router, prefix="/api/v1")
+app.include_router(evaluation_router, prefix="/api/v1")
+app.include_router(deployment_router, prefix="/api/v1")
+app.include_router(experiments_router, prefix="/api/v1")
+
+
+
 
 
 @app.get("/")

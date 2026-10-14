@@ -87,3 +87,40 @@ export interface LifecycleState {
   chosen_action?: RepairAction;
   updated_at: string;
 }
+
+export interface BenchmarkPolicyResult {
+  policy: string;
+  cumulative_recall: number;
+  cumulative_fpr: number;
+  action_counts: Record<string, number>;
+  full_retrain_count: number;
+  unnecessary_retrains: number;
+  unnecessary_retrain_rate: number;
+  total_compute_seconds: number;
+  compute_savings_pct: number;
+  labels_consumed: number;
+  label_savings_pct: number;
+  mean_recovery_time_s: number;
+}
+
+export interface BenchmarkReport {
+  report_id: string;
+  total_windows_evaluated: number;
+  total_events_evaluated: number;
+  results: Record<string, BenchmarkPolicyResult>;
+  summary_verdict: string;
+  created_at: string;
+}
+
+export interface ScenarioRunResult {
+  scenario: string;
+  description: string;
+  fingerprint: DamageFingerprint;
+  chosen_action: RepairAction;
+  action_reason: string;
+  evaluation_verdict: string | null;
+  deployment_action: string;
+  safety_invariants_preserved: boolean;
+  details: Record<string, unknown>;
+  executed_at: string;
+}

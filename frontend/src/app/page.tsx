@@ -4,16 +4,28 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
   AlertOctagon,
+  ArrowRight,
+  BarChart3,
   CheckCircle2,
   Cpu,
   Layers,
+  Play,
   Radio,
   RefreshCw,
+  RotateCcw,
   Send,
   Shield,
+  TrendingUp,
   Zap,
 } from "lucide-react";
-import { AlertRecord, DamageFingerprint, LifecycleState, RepairAction } from "@/types/contracts";
+import {
+  AlertRecord,
+  BenchmarkReport,
+  DamageFingerprint,
+  LifecycleState,
+  RepairAction,
+  ScenarioRunResult,
+} from "@/types/contracts";
 
 export default function Dashboard() {
   const [backendHealthy, setBackendHealthy] = useState<boolean | null>(null);
@@ -22,24 +34,36 @@ export default function Dashboard() {
   const [submittingBatch, setSubmittingBatch] = useState<boolean>(false);
   const [batchFeedback, setBatchFeedback] = useState<string | null>(null);
 
+  // Canary controls
+  const [canaryActionStatus, setCanaryActionStatus] = useState<string | null>(null);
+  const [actingCanary, setActingCanary] = useState<boolean>(false);
+
+  // Scenario Runner
+  const [runningScenario, setRunningScenario] = useState<boolean>(false);
+  const [scenarioResult, setScenarioResult] = useState<ScenarioRunResult | null>(null);
+
+  // Benchmarks
+  const [benchmarkReport, setBenchmarkReport] = useState<BenchmarkReport | null>(null);
+  const [loadingBenchmark, setLoadingBenchmark] = useState<boolean>(false);
+
   // DARI state
-  const [lifecycle] = useState<LifecycleState>({
+  const [lifecycle, setLifecycle] = useState<LifecycleState>({
     champion_release: "R1",
     active_slot: "A",
     candidate_release: undefined,
     candidate_slot: undefined,
     canary_weight: 0.0,
     last_fingerprint: {
-      D_X: 0.08,
-      D_Y: 0.03,
-      D_B: 0.14,
-      Q: 0.99,
-      L: 0.94,
-      S: 1520,
+      D_X: 0.012,
+      D_Y: 0.008,
+      D_B: 0.045,
+      Q: 0.999,
+      L: 0.985,
+      S: 2000,
       R: 1,
     },
     chosen_action: "A0",
-    updated_at: "2026-10-14T00:00:00Z",
+    updated_at: "2026-10-15T00:00:00Z",
   });
 
   const loadData = useCallback(async () => {
@@ -58,8 +82,33 @@ export default function Dashboard() {
       }
     } catch (e) {
       console.error(e);
+    }
+
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/lifecycle");
+      if (res.ok) {
+        const lc = await res.json();
+        setLifecycle(lc);
+      }
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const fetchBenchmark = useCallback(async () => {
+    setLoadingBenchmark(true);
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/experiments/benchmark?n_windows=10");
+      if (res.ok) {
+        const data = await res.json();
+        setBenchmarkReport(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingBenchmark(false);
     }
   }, []);
 
@@ -81,12 +130,33 @@ export default function Dashboard() {
         }
       } catch (e) {
         console.error(e);
+      }
+
+      try {
+        const res = await fetch("http://localhost:8000/api/v1/lifecycle");
+        if (res.ok && !ignore) {
+          const lc = await res.json();
+          setLifecycle(lc);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
+      try {
+        const benchRes = await fetch("http://localhost:8000/api/v1/experiments/benchmark?n_windows=10");
+        if (benchRes.ok && !ignore) {
+          const benchData = await benchRes.json();
+          setBenchmarkReport(benchData);
+        }
+      } catch (e) {
+        console.error(e);
       } finally {
         if (!ignore) setLoading(false);
       }
     }
 
     void fetchData();
+
     const interval = setInterval(() => {
       void fetchData();
     }, 10000);
@@ -177,6 +247,72 @@ export default function Dashboard() {
       setBatchFeedback(`Connection error: ${message}`);
     } finally {
       setSubmittingBatch(false);
+    }
+  };
+
+  const advanceCanary = async () => {
+    setActingCanary(true);
+    setCanaryActionStatus(null);
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/deployment/canary/advance", {
+        method: "POST",
+      });
+      if (res.ok) {
+        const state = await res.json();
+        setCanaryActionStatus(`Advanced canary weight to ${(state.canary_weight * 100).toFixed(0)}%`);
+        await loadData();
+      } else {
+        const err = await res.json();
+        setCanaryActionStatus(`Failed: ${err.detail || "No active candidate staged"}`);
+      }
+    } catch (e: unknown) {
+      setCanaryActionStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setActingCanary(false);
+    }
+  };
+
+  const rollbackCanary = async () => {
+    setActingCanary(true);
+    setCanaryActionStatus(null);
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/deployment/canary/rollback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "Manual operator abort from dashboard" }),
+      });
+      if (res.ok) {
+        setCanaryActionStatus("Warm rollback executed: 100% traffic restored to Champion.");
+        await loadData();
+      } else {
+        const err = await res.json();
+        setCanaryActionStatus(`Rollback failed: ${err.detail || "Unknown error"}`);
+      }
+    } catch (e: unknown) {
+      setCanaryActionStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setActingCanary(false);
+    }
+  };
+
+  const executeScenario = async (scenario: string) => {
+    setRunningScenario(true);
+    setScenarioResult(null);
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/experiments/scenarios/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenario }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setScenarioResult(data);
+        await loadData();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRunningScenario(false);
     }
   };
 
@@ -281,10 +417,10 @@ export default function Dashboard() {
             <Layers className="w-4 h-4 text-purple-400" />
           </div>
           <div className="text-2xl font-bold text-white font-mono">
-            {lifecycle.canary_weight * 100}%
+            {(lifecycle.canary_weight * 100).toFixed(0)}%
           </div>
           <div className="text-xs text-slate-400 mt-1">
-            Slot B: {lifecycle.candidate_release || "Idle / Standby"}
+            Candidate: {lifecycle.candidate_release || "Idle / Standby"}
           </div>
         </div>
 
@@ -340,7 +476,7 @@ export default function Dashboard() {
               <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
                 <div
                   className="bg-cyan-500 h-full rounded-full"
-                  style={{ width: `${fp.D_X * 100}%` }}
+                  style={{ width: `${Math.min(100, fp.D_X * 100)}%` }}
                 />
               </div>
             </div>
@@ -353,7 +489,7 @@ export default function Dashboard() {
               <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
                 <div
                   className="bg-purple-500 h-full rounded-full"
-                  style={{ width: `${(fp.D_Y || 0) * 100}%` }}
+                  style={{ width: `${Math.min(100, (fp.D_Y || 0) * 100)}%` }}
                 />
               </div>
             </div>
@@ -366,7 +502,7 @@ export default function Dashboard() {
               <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
                 <div
                   className="bg-amber-500 h-full rounded-full"
-                  style={{ width: `${fp.D_B * 100}%` }}
+                  style={{ width: `${Math.min(100, fp.D_B * 100)}%` }}
                 />
               </div>
             </div>
@@ -379,7 +515,7 @@ export default function Dashboard() {
               <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
                 <div
                   className="bg-emerald-500 h-full rounded-full"
-                  style={{ width: `${fp.Q * 100}%` }}
+                  style={{ width: `${Math.min(100, fp.Q * 100)}%` }}
                 />
               </div>
             </div>
@@ -392,7 +528,7 @@ export default function Dashboard() {
               <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
                 <div
                   className="bg-blue-500 h-full rounded-full"
-                  style={{ width: `${fp.L * 100}%` }}
+                  style={{ width: `${Math.min(100, fp.L * 100)}%` }}
                 />
               </div>
             </div>
@@ -443,6 +579,233 @@ export default function Dashboard() {
           </div>
         </section>
       </div>
+
+      {/* Two-Slot Canary Deployment & Autonomous Scenario Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Two-Slot Canary Controller */}
+        <section className="p-6 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Layers className="w-5 h-5 text-purple-400" /> Dual-Slot Canary Controller
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Staged rollout: 5% &rarr; 25% &rarr; 50% &rarr; 100% with immediate warm rollback.
+              </p>
+            </div>
+            <span className="px-2.5 py-1 text-xs rounded-lg font-mono font-medium border border-purple-800/60 bg-purple-950/40 text-purple-300">
+              Weight: {(lifecycle.canary_weight * 100).toFixed(0)}%
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-6 font-mono text-xs">
+            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/50">
+              <span className="text-slate-400 text-[11px]">Slot A (Primary)</span>
+              <div className="text-sm font-bold text-white mt-1">
+                {lifecycle.active_slot === "A" ? lifecycle.champion_release : lifecycle.candidate_release || "Idle"}
+              </div>
+              <div className="text-[11px] text-emerald-400 mt-1">
+                {lifecycle.active_slot === "A" ? `${((1 - lifecycle.canary_weight) * 100).toFixed(0)}% Traffic (Champ)` : `${(lifecycle.canary_weight * 100).toFixed(0)}% Traffic (Canary)`}
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/50">
+              <span className="text-slate-400 text-[11px]">Slot B (Secondary)</span>
+              <div className="text-sm font-bold text-white mt-1">
+                {lifecycle.active_slot === "B" ? lifecycle.champion_release : lifecycle.candidate_release || "Standby"}
+              </div>
+              <div className="text-[11px] text-purple-400 mt-1">
+                {lifecycle.active_slot === "B" ? `${((1 - lifecycle.canary_weight) * 100).toFixed(0)}% Traffic (Champ)` : `${(lifecycle.canary_weight * 100).toFixed(0)}% Traffic (Canary)`}
+              </div>
+            </div>
+          </div>
+
+          {canaryActionStatus && (
+            <div className="text-xs p-2.5 rounded-lg mb-4 bg-purple-950/40 border border-purple-800/50 text-purple-300">
+              {canaryActionStatus}
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              onClick={advanceCanary}
+              disabled={actingCanary || !lifecycle.candidate_release}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 disabled:text-slate-600 font-semibold text-xs text-white transition-colors"
+            >
+              <ArrowRight className="w-3.5 h-3.5" />
+              Advance Canary Stage
+            </button>
+            <button
+              onClick={rollbackCanary}
+              disabled={actingCanary}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 border border-rose-500/50 text-rose-300 font-semibold text-xs transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Warm Rollback
+            </button>
+          </div>
+        </section>
+
+        {/* Autonomous Scenario Simulator */}
+        <section className="p-6 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Play className="w-5 h-5 text-emerald-400" /> Scenario Injection Engine
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Execute streaming drift scenarios to verify self-healing invariants.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+            <button
+              onClick={() => executeScenario("nominal")}
+              disabled={runningScenario}
+              className="p-2 text-xs font-semibold rounded-lg border border-slate-800 bg-slate-950/60 hover:bg-slate-800 text-slate-200 transition-colors text-left"
+            >
+              <div className="text-emerald-400 text-[10px]">A0 Baseline</div>
+              Nominal Traffic
+            </button>
+            <button
+              onClick={() => executeScenario("boundary_shift")}
+              disabled={runningScenario}
+              className="p-2 text-xs font-semibold rounded-lg border border-slate-800 bg-slate-950/60 hover:bg-slate-800 text-slate-200 transition-colors text-left"
+            >
+              <div className="text-cyan-400 text-[10px]">A1 Calibrate</div>
+              Boundary Shift
+            </button>
+            <button
+              onClick={() => executeScenario("localized_cluster")}
+              disabled={runningScenario}
+              className="p-2 text-xs font-semibold rounded-lg border border-slate-800 bg-slate-950/60 hover:bg-slate-800 text-slate-200 transition-colors text-left"
+            >
+              <div className="text-amber-400 text-[10px]">A2 Local</div>
+              Port Cluster Shift
+            </button>
+            <button
+              onClick={() => executeScenario("severe_attack")}
+              disabled={runningScenario}
+              className="p-2 text-xs font-semibold rounded-lg border border-slate-800 bg-slate-950/60 hover:bg-slate-800 text-slate-200 transition-colors text-left"
+            >
+              <div className="text-rose-400 text-[10px]">A3 Retrain</div>
+              Multi-Class Attack
+            </button>
+            <button
+              onClick={() => executeScenario("faulty_candidate_rejection")}
+              disabled={runningScenario}
+              className="p-2 text-xs font-semibold rounded-lg border border-slate-800 bg-slate-950/60 hover:bg-slate-800 text-slate-200 transition-colors text-left"
+            >
+              <div className="text-rose-400 text-[10px]">Gate Reject</div>
+              Faulty Candidate
+            </button>
+            <button
+              onClick={() => executeScenario("canary_watchdog_rollback")}
+              disabled={runningScenario}
+              className="p-2 text-xs font-semibold rounded-lg border border-slate-800 bg-slate-950/60 hover:bg-slate-800 text-slate-200 transition-colors text-left"
+            >
+              <div className="text-purple-400 text-[10px]">Watchdog</div>
+              Canary SLA Breach
+            </button>
+          </div>
+
+          {scenarioResult && (
+            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/70 font-mono text-xs space-y-1 text-slate-300">
+              <div className="flex items-center justify-between text-white font-bold">
+                <span>Executed: {scenarioResult.scenario}</span>
+                <span className="text-cyan-400">Action: {scenarioResult.chosen_action}</span>
+              </div>
+              <div className="text-slate-400 text-[11px]">{scenarioResult.description}</div>
+              <div className="text-emerald-400 text-[11px]">
+                Deployment: {scenarioResult.deployment_action}
+              </div>
+              {scenarioResult.evaluation_verdict && (
+                <div className="text-amber-400 text-[11px]">
+                  Gate Verdict: {scenarioResult.evaluation_verdict}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* DARI vs Baselines Benchmark Scoreboard */}
+      <section className="p-6 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-cyan-400" /> DARI vs Baseline Benchmark Scoreboard
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Empirical evaluation across identical continuous 2,000-event streaming replay windows.
+            </p>
+          </div>
+          <button
+            onClick={fetchBenchmark}
+            disabled={loadingBenchmark}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-850 text-xs text-slate-300 transition-colors font-mono"
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
+            {loadingBenchmark ? "Running Benchmark..." : "Re-Run Benchmark"}
+          </button>
+        </div>
+
+        {benchmarkReport ? (
+          <div className="space-y-4">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Policy Strategy</th>
+                    <th className="py-3 px-4">Cumulative Recall</th>
+                    <th className="py-3 px-4">False Alarm (FPR)</th>
+                    <th className="py-3 px-4">Unnecessary Retrains</th>
+                    <th className="py-3 px-4">Compute Hours Saved</th>
+                    <th className="py-3 px-4">Label Savings</th>
+                    <th className="py-3 px-4">Recovery Time</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
+                  {Object.values(benchmarkReport.results).map((res) => {
+                    const isDari = res.policy === "dari";
+                    return (
+                      <tr
+                        key={res.policy}
+                        className={isDari ? "bg-cyan-950/20 text-cyan-300 font-bold" : "text-slate-300 hover:bg-slate-800/20"}
+                      >
+                        <td className="py-3 px-4 flex items-center gap-2">
+                          {isDari && <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />}
+                          <span className="uppercase">{res.policy.replace("_", " ")}</span>
+                        </td>
+                        <td className="py-3 px-4">{(res.cumulative_recall * 100).toFixed(1)}%</td>
+                        <td className="py-3 px-4">{(res.cumulative_fpr * 100).toFixed(2)}%</td>
+                        <td className="py-3 px-4">
+                          <span className={res.unnecessary_retrain_rate === 0 ? "text-emerald-400 font-bold" : "text-rose-400"}>
+                            {(res.unnecessary_retrain_rate * 100).toFixed(0)}%
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-emerald-400">
+                          {res.compute_savings_pct > 0 ? `+${res.compute_savings_pct.toFixed(1)}%` : "0.0%"}
+                        </td>
+                        <td className="py-3 px-4 text-emerald-400">
+                          {res.label_savings_pct > 0 ? `+${res.label_savings_pct.toFixed(1)}%` : "0.0%"}
+                        </td>
+                        <td className="py-3 px-4 text-slate-400">{res.mean_recovery_time_s.toFixed(2)}s</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-slate-400 bg-slate-950/60 p-3 rounded-lg border border-slate-800/60 font-mono">
+              {benchmarkReport.summary_verdict}
+            </p>
+          </div>
+        ) : (
+          <div className="py-8 text-center text-slate-500 text-xs">Loading benchmark data...</div>
+        )}
+      </section>
 
       {/* Intrusion Alerts Table */}
       <section className="p-6 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur">

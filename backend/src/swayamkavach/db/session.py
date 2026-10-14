@@ -29,8 +29,17 @@ def get_engine():
 
 
 def init_db():
-    """Create all tables in the database."""
+    """Create all tables in the database and ensure schema column parity."""
     Base.metadata.create_all(bind=engine)
+    if DATABASE_URL.startswith("sqlite"):
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            try:
+                conn.execute(text("ALTER TABLE lifecycle_state ADD COLUMN last_fingerprint JSON"))
+                conn.commit()
+            except Exception:
+                pass
+
 
 
 def get_db() -> Generator[Session, None, None]:

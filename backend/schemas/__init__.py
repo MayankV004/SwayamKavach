@@ -3,6 +3,7 @@
 from schemas.alert import AlertRecord
 from schemas.flow_event import FlowEvent, NetworkIdentifiers, TONConnectionFeatures
 from schemas.ingestion import BatchIngestRequest, BatchReceiptResponse
+from schemas.label import DelayedLabelBatch, DelayedLabelItem, DelayedLabelReceipt
 from schemas.lifecycle import DamageFingerprint, EvaluationVerdict, LifecycleState, RepairAction
 from schemas.prediction import PredictionRequest, PredictionResponse, PredictionResult
 
@@ -11,6 +12,9 @@ __all__ = [
     "BatchIngestRequest",
     "BatchReceiptResponse",
     "DamageFingerprint",
+    "DelayedLabelBatch",
+    "DelayedLabelItem",
+    "DelayedLabelReceipt",
     "EvaluationVerdict",
     "FlowEvent",
     "LifecycleState",
@@ -21,3 +25,4 @@ __all__ = [
     "RepairAction",
     "TONConnectionFeatures",
 ]
+

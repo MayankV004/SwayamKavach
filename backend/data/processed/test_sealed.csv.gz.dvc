@@ -1,0 +1,5 @@
+outs:
+- md5: 7287912013b25f7294dc23dd8db03a18
+  size: 519091
+  hash: md5
+  path: test_sealed.csv.gz

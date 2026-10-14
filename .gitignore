@@ -37,10 +37,15 @@ frontend/build/
 *.tsbuildinfo
 
 # Data, Large Artifacts, and DVC
-data/raw/*
-!data/raw/.gitkeep
-data/processed/*
-!data/processed/.gitkeep
+**/data/raw/*.csv*
+**/data/raw/*.pcap*
+**/data/raw/*.parquet*
+**/data/processed/*.csv*
+**/data/processed/*.parquet*
+!**/data/raw/.gitkeep
+!**/data/processed/.gitkeep
+!*.dvc
+.dvc_storage/
 .dvc/cache/
 .dvc/tmp/
 

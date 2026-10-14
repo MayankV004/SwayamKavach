@@ -1,0 +1,5 @@
+outs:
+- md5: 6b0b77620b4b44353b53693a8b7aa077
+  size: 519198
+  hash: md5
+  path: val.csv.gz

@@ -91,4 +91,19 @@ class LifecycleStateRecordDB(Base):
     candidate_slot: Mapped[str] = mapped_column(String(8), nullable=True)
     canary_weight: Mapped[float] = mapped_column(Float, default=0.0)
     last_action: Mapped[str] = mapped_column(String(16), default="A0")
+    last_fingerprint: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class GroundTruthLabelRecordDB(Base):
+    """Stores delayed ground-truth labels for offline evaluation and DARI damage estimation."""
+
+    __tablename__ = "ground_truth_labels"
+
+    event_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    label: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    attack_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source: Mapped[str] = mapped_column(String(64), default="analyst_verification")
+    confidence: Mapped[float] = mapped_column(Float, default=1.0)
+    received_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+

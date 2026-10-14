@@ -1,0 +1,125 @@
+{
+  "manifest_version": "v1.0.0",
+  "raw_source": {
+    "path": "/home/streamliner/btp/backend/data/raw/train_test_network.csv",
+    "sha256": "26ddc513552de36de6428b2e578efaed2b57504c716dfba847cc0109a64e1974",
+    "total_rows": 211043
+  },
+  "split_policy": {
+    "strategy": "stratified_by_attack_type",
+    "seed": 42,
+    "train_ratio": 0.7,
+    "val_ratio": 0.15,
+    "test_ratio": 0.15
+  },
+  "splits": {
+    "train": {
+      "file": "data/processed/train.csv.gz",
+      "sha256": "26828e5a30728d226c2b014f43b454c928fed69e58c28a612386f6564b1b51ae",
+      "row_count": 147730,
+      "class_distribution": {
+        "1": 112730,
+        "0": 35000
+      },
+      "attack_type_distribution": {
+        "normal": 35000,
+        "ddos": 14000,
+        "scanning": 14000,
+        "injection": 14000,
+        "password": 14000,
+        "ransomware": 14000,
+        "xss": 14000,
+        "backdoor": 14000,
+        "dos": 14000,
+        "mitm": 730
+      }
+    },
+    "val": {
+      "file": "data/processed/val.csv.gz",
+      "sha256": "5493770452d749d13be321495d2e896b4fd6d66ed02d51b7c715c4365945ec03",
+      "row_count": 31656,
+      "class_distribution": {
+        "1": 24156,
+        "0": 7500
+      },
+      "attack_type_distribution": {
+        "normal": 7500,
+        "injection": 3000,
+        "xss": 3000,
+        "ransomware": 3000,
+        "password": 3000,
+        "scanning": 3000,
+        "backdoor": 3000,
+        "ddos": 3000,
+        "dos": 3000,
+        "mitm": 156
+      }
+    },
+    "test_sealed": {
+      "file": "data/processed/test_sealed.csv.gz",
+      "sha256": "15ecb7a70246617e2a1b5720aa31ba8e1c056071d72a70ef60b17721c64491a5",
+      "row_count": 31657,
+      "class_distribution": {
+        "1": 24157,
+        "0": 7500
+      },
+      "attack_type_distribution": {
+        "normal": 7500,
+        "backdoor": 3000,
+        "xss": 3000,
+        "ransomware": 3000,
+        "scanning": 3000,
+        "ddos": 3000,
+        "dos": 3000,
+        "password": 3000,
+        "injection": 3000,
+        "mitm": 157
+      }
+    },
+    "replay_stream": {
+      "features_file": "data/processed/replay_features.csv.gz",
+      "labels_file": "data/processed/replay_labels.csv.gz",
+      "row_count": 2000,
+      "class_distribution": {
+        "1": 1534,
+        "0": 466
+      },
+      "attack_type_distribution": {
+        "normal": 466,
+        "dos": 211,
+        "xss": 201,
+        "injection": 199,
+        "password": 194,
+        "scanning": 191,
+        "backdoor": 180,
+        "ddos": 174,
+        "ransomware": 173,
+        "mitm": 11
+      }
+    }
+  },
+  "feature_schema": "ton-conn-11-v1",
+  "feature_columns": [
+    "duration",
+    "src_bytes",
+    "dst_bytes",
+    "src_ip_bytes",
+    "dst_ip_bytes",
+    "src_pkts",
+    "dst_pkts",
+    "proto",
+    "service",
+    "conn_state",
+    "missed_bytes"
+  ],
+  "identifier_columns": [
+    "src_ip",
+    "src_port",
+    "dst_ip",
+    "dst_port"
+  ],
+  "label_columns": [
+    "label",
+    "type"
+  ]
+}
