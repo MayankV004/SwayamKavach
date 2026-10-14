@@ -1,4 +1,4 @@
-.PHONY: sync test lint lint-fix api serving-a serving-b consumer frontend frontend-lint frontend-build check docker-up docker-down clean rehearse
+.PHONY: sync test lint lint-fix api serving-a serving-b consumer mlflow frontend frontend-lint frontend-build check docker-up docker-down clean rehearse
 
 # Backend Environment & Dependencies (uv)
 sync:
@@ -26,6 +26,10 @@ serving-b:
 
 consumer:
 	cd backend && uv run python src/swayamkavach/inference_consumer.py
+
+# MLflow Tracking & Model Registry UI
+mlflow:
+	cd backend && uv run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
 
 # Frontend Development
 frontend:
