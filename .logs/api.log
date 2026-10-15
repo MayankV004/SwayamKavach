@@ -1,7 +1,391 @@
-INFO:     Started server process [246371]
+INFO:     Started server process [15310]
 INFO:     Waiting for application startup.
-2026-10-15 03:32:22,596 [INFO] swayamkavach.api: Initializing SwayamKavach API and database schemas...
-2026-10-15 03:32:22,597 [INFO] swayamkavach.api: Database initialized successfully.
+2026-10-15 11:20:12,955 [INFO] swayamkavach.api: Initializing SwayamKavach API and database schemas...
+2026-10-15 11:20:12,957 [INFO] swayamkavach.api: Database initialized successfully.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:56348 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59792 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59800 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59800 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59792 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59792 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59800 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+2026-10-15 11:20:39,002 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A1, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.235, 'A1': 0.9175, 'A2': 0.3505}
+2026-10-15 11:20:39,002 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A1, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.235, 'A1': 0.9175, 'A2': 0.3505}
+2026-10-15 11:20:39,002 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.475, 'A1': 0.4735, 'A2': 0.5185}
+2026-10-15 11:20:39,002 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.475, 'A1': 0.4735, 'A2': 0.5185}
+2026-10-15 11:20:39,002 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025}
+2026-10-15 11:20:39,002 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A3, feasible=['A0', 'A1', 'A2', 'A3'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025, 'A3': 0.57}
+2026-10-15 11:20:39,002 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A3, feasible=['A0', 'A1', 'A2', 'A3'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025, 'A3': 0.57}
+INFO:     127.0.0.1:59800 - "GET /api/v1/experiments/benchmark?n_windows=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58978 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58978 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58978 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34192 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34192 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34192 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34508 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34508 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34508 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56508 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56508 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56508 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36676 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36676 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36676 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59008 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59008 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59008 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60350 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60350 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60350 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48276 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48276 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48276 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42506 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42506 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42506 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60890 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60890 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60890 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57374 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57374 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57374 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41170 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41170 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41170 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49842 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49842 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49842 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49284 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49284 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49284 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57230 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57230 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57230 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50698 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50698 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50698 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50416 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50416 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50416 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59178 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59178 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59178 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41606 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41606 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41606 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58716 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58716 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58716 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37006 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37006 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37008 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37008 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37008 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37014 - "GET /redoc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37014 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58726 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58726 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58726 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49338 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49338 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49338 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38948 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38948 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38948 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52002 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52002 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52002 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51452 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51452 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51452 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34458 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34458 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34458 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58000 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58000 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58000 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58000 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58002 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58002 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+2026-10-15 11:25:19,179 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A1, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.235, 'A1': 0.9175, 'A2': 0.3505}
+2026-10-15 11:25:19,179 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A1, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.235, 'A1': 0.9175, 'A2': 0.3505}
+2026-10-15 11:25:19,179 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.475, 'A1': 0.4735, 'A2': 0.5185}
+2026-10-15 11:25:19,179 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.475, 'A1': 0.4735, 'A2': 0.5185}
+2026-10-15 11:25:19,179 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025}
+2026-10-15 11:25:19,180 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A3, feasible=['A0', 'A1', 'A2', 'A3'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025, 'A3': 0.57}
+2026-10-15 11:25:19,180 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A3, feasible=['A0', 'A1', 'A2', 'A3'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025, 'A3': 0.57}
+INFO:     127.0.0.1:58002 - "GET /api/v1/experiments/benchmark?n_windows=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58002 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58002 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58000 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58006 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58006 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58006 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58000 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58006 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58002 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58002 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58002 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58006 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+2026-10-15 11:25:19,795 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A1, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.235, 'A1': 0.9175, 'A2': 0.3505}
+2026-10-15 11:25:19,795 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A1, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.235, 'A1': 0.9175, 'A2': 0.3505}
+2026-10-15 11:25:19,795 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.475, 'A1': 0.4735, 'A2': 0.5185}
+2026-10-15 11:25:19,795 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.475, 'A1': 0.4735, 'A2': 0.5185}
+2026-10-15 11:25:19,795 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025}
+2026-10-15 11:25:19,795 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A3, feasible=['A0', 'A1', 'A2', 'A3'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025, 'A3': 0.57}
+2026-10-15 11:25:19,795 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A3, feasible=['A0', 'A1', 'A2', 'A3'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025, 'A3': 0.57}
+INFO:     127.0.0.1:58006 - "GET /api/v1/experiments/benchmark?n_windows=10 HTTP/1.1" 200 OK
+2026-10-15 11:25:19,798 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A1, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.235, 'A1': 0.9175, 'A2': 0.3505}
+2026-10-15 11:25:19,798 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A1, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.235, 'A1': 0.9175, 'A2': 0.3505}
+2026-10-15 11:25:19,798 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.475, 'A1': 0.4735, 'A2': 0.5185}
+2026-10-15 11:25:19,798 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.475, 'A1': 0.4735, 'A2': 0.5185}
+2026-10-15 11:25:19,798 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025}
+2026-10-15 11:25:19,798 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A3, feasible=['A0', 'A1', 'A2', 'A3'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025, 'A3': 0.57}
+2026-10-15 11:25:19,798 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A3, feasible=['A0', 'A1', 'A2', 'A3'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025, 'A3': 0.57}
+INFO:     127.0.0.1:58006 - "GET /api/v1/experiments/benchmark?n_windows=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39280 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39286 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39286 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39280 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39280 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39286 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48978 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48984 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48984 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48978 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48978 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48978 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33854 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33868 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33868 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33854 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33854 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33854 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50498 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50488 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50488 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50498 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50498 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50498 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54382 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54396 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54396 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54382 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54382 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54382 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52414 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52414 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48200 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48188 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48200 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48188 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48188 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48188 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57170 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57178 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57178 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57170 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57170 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57170 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55376 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55380 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55380 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55376 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55376 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55376 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37772 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37756 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37756 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37772 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37772 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37772 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38098 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38110 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38110 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38098 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38098 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38098 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55900 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55902 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55902 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55900 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55900 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55900 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57938 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57946 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57946 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57938 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57938 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57938 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53048 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53040 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53040 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53048 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53048 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53048 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36814 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36826 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36826 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36814 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36814 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36814 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51688 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51682 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51682 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51688 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51688 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51688 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51156 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51160 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51160 - "GET /api/v1/alerts?limit=25 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51156 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51156 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51156 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45242 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45240 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45242 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45240 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45240 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45240 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+2026-10-15 11:28:19,352 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A1, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.235, 'A1': 0.9175, 'A2': 0.3505}
+2026-10-15 11:28:19,352 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A1, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.235, 'A1': 0.9175, 'A2': 0.3505}
+2026-10-15 11:28:19,352 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.475, 'A1': 0.4735, 'A2': 0.5185}
+2026-10-15 11:28:19,352 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.475, 'A1': 0.4735, 'A2': 0.5185}
+2026-10-15 11:28:19,352 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025}
+2026-10-15 11:28:19,352 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A3, feasible=['A0', 'A1', 'A2', 'A3'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025, 'A3': 0.57}
+2026-10-15 11:28:19,352 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A3, feasible=['A0', 'A1', 'A2', 'A3'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025, 'A3': 0.57}
+INFO:     127.0.0.1:45240 - "GET /api/v1/experiments/benchmark?n_windows=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48156 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48156 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48156 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54778 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54778 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54778 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57140 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57140 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57140 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43020 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43020 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43020 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42702 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42702 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42702 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38236 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38236 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38236 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36434 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36434 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36434 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39258 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39258 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39258 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41630 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41630 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41630 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60870 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60870 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60870 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56514 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56514 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56514 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39344 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39344 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39344 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60976 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60976 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60976 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38340 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38340 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38340 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36110 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36110 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36110 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37782 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37782 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37782 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54304 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54304 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54304 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36142 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36142 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36142 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41026 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41026 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41026 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40520 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40520 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40520 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37458 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37458 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37458 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35280 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35294 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35294 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35280 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35294 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35280 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+2026-10-15 11:31:56,637 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A1, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.235, 'A1': 0.9175, 'A2': 0.3505}
+2026-10-15 11:31:56,637 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A1, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.235, 'A1': 0.9175, 'A2': 0.3505}
+2026-10-15 11:31:56,637 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.475, 'A1': 0.4735, 'A2': 0.5185}
+2026-10-15 11:31:56,637 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.475, 'A1': 0.4735, 'A2': 0.5185}
+2026-10-15 11:31:56,637 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A2, feasible=['A0', 'A1', 'A2'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025}
+2026-10-15 11:31:56,637 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A3, feasible=['A0', 'A1', 'A2', 'A3'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025, 'A3': 0.57}
+2026-10-15 11:31:56,637 [INFO] swayamkavach.dari.selector: DARI Decision: chosen=A3, feasible=['A0', 'A1', 'A2', 'A3'], utilities={'A0': 0.0, 'A1': 0.1775, 'A2': 0.2025, 'A3': 0.57}
+INFO:     127.0.0.1:35280 - "GET /api/v1/experiments/benchmark?n_windows=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48684 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48684 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48684 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44510 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44510 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44510 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44922 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44922 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44922 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58614 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58614 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58614 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58270 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58270 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58270 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43210 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43210 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43210 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57230 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57230 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57230 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58638 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58638 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58638 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39998 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39998 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39998 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59550 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59550 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59550 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42312 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42312 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42312 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58298 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58298 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58298 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32780 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32780 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32780 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59132 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59132 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59132 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51962 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51962 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51962 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51290 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51290 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51290 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37102 - "GET /api/v1/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37102 - "GET /api/v1/alerts?limit=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37102 - "GET /api/v1/lifecycle HTTP/1.1" 200 OK

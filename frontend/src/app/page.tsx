@@ -1,877 +1,179 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import {
-  Activity,
-  AlertOctagon,
-  ArrowRight,
-  BarChart3,
-  CheckCircle2,
-  Cpu,
-  Layers,
-  Play,
-  Radio,
-  RefreshCw,
-  RotateCcw,
-  Send,
-  Shield,
-  TrendingUp,
-  Zap,
-} from "lucide-react";
-import {
-  AlertRecord,
-  BenchmarkReport,
-  DamageFingerprint,
-  LifecycleState,
-  RepairAction,
-  ScenarioRunResult,
-} from "@/types/contracts";
+import React from "react";
+import Link from "next/link";
+import { useDashboard } from "@/context/DashboardContext";
+import { MetricsOverview } from "@/components/dashboard/MetricsOverview";
+import { DamageFingerprintCard } from "@/components/dashboard/DamageFingerprintCard";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
-export default function Dashboard() {
-  const [backendHealthy, setBackendHealthy] = useState<boolean | null>(null);
-  const [alerts, setAlerts] = useState<AlertRecord[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [submittingBatch, setSubmittingBatch] = useState<boolean>(false);
-  const [batchFeedback, setBatchFeedback] = useState<string | null>(null);
+export default function OverviewPage() {
+  const { lifecycle, alerts } = useDashboard();
 
-  // Canary controls
-  const [canaryActionStatus, setCanaryActionStatus] = useState<string | null>(null);
-  const [actingCanary, setActingCanary] = useState<boolean>(false);
-
-  // Scenario Runner
-  const [runningScenario, setRunningScenario] = useState<boolean>(false);
-  const [scenarioResult, setScenarioResult] = useState<ScenarioRunResult | null>(null);
-
-  // Benchmarks
-  const [benchmarkReport, setBenchmarkReport] = useState<BenchmarkReport | null>(null);
-  const [loadingBenchmark, setLoadingBenchmark] = useState<boolean>(false);
-
-  // DARI state
-  const [lifecycle, setLifecycle] = useState<LifecycleState>({
-    champion_release: "R1",
-    active_slot: "A",
-    candidate_release: undefined,
-    candidate_slot: undefined,
-    canary_weight: 0.0,
-    last_fingerprint: {
-      D_X: 0.012,
-      D_Y: 0.008,
-      D_B: 0.045,
-      Q: 0.999,
-      L: 0.985,
-      S: 2000,
-      R: 1,
-    },
-    chosen_action: "A0",
-    updated_at: "2026-10-15T00:00:00Z",
-  });
-
-  const loadData = useCallback(async () => {
-    try {
-      const res = await fetch("http://localhost:8000/api/v1/health");
-      setBackendHealthy(res.ok);
-    } catch {
-      setBackendHealthy(false);
-    }
-
-    try {
-      const res = await fetch("http://localhost:8000/api/v1/alerts?limit=10");
-      if (res.ok) {
-        const data = await res.json();
-        setAlerts(data);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-
-    try {
-      const res = await fetch("http://localhost:8000/api/v1/lifecycle");
-      if (res.ok) {
-        const lc = await res.json();
-        setLifecycle(lc);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const fetchBenchmark = useCallback(async () => {
-    setLoadingBenchmark(true);
-    try {
-      const res = await fetch("http://localhost:8000/api/v1/experiments/benchmark?n_windows=10");
-      if (res.ok) {
-        const data = await res.json();
-        setBenchmarkReport(data);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingBenchmark(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    let ignore = false;
-    async function fetchData() {
-      try {
-        const res = await fetch("http://localhost:8000/api/v1/health");
-        if (!ignore) setBackendHealthy(res.ok);
-      } catch {
-        if (!ignore) setBackendHealthy(false);
-      }
-
-      try {
-        const res = await fetch("http://localhost:8000/api/v1/alerts?limit=10");
-        if (res.ok && !ignore) {
-          const data = await res.json();
-          setAlerts(data);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-
-      try {
-        const res = await fetch("http://localhost:8000/api/v1/lifecycle");
-        if (res.ok && !ignore) {
-          const lc = await res.json();
-          setLifecycle(lc);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-
-      try {
-        const benchRes = await fetch("http://localhost:8000/api/v1/experiments/benchmark?n_windows=10");
-        if (benchRes.ok && !ignore) {
-          const benchData = await benchRes.json();
-          setBenchmarkReport(benchData);
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    }
-
-    void fetchData();
-
-    const interval = setInterval(() => {
-      void fetchData();
-    }, 10000);
-
-    return () => {
-      ignore = true;
-      clearInterval(interval);
-    };
-  }, []);
-
-  const sendTestBatch = async () => {
-    setSubmittingBatch(true);
-    setBatchFeedback(null);
-    try {
-      const batchId = `ui-test-${Date.now().toString().slice(-6)}`;
-      const payload = {
-        batch_id: batchId,
-        sensor_id: "zeek-sensor-lab-1",
-        schema_version: "ton-conn-5-v1",
-        extractor_id: "zeek-pinned-v1",
-        events: [
-          {
-            event_id: `evt-${batchId}-1`,
-            sensor_id: "zeek-sensor-lab-1",
-            event_time: new Date().toISOString(),
-            features: {
-              duration: 2.4,
-              src_bytes: 420,
-              dst_bytes: 840,
-              src_ip_bytes: 500,
-              dst_ip_bytes: 920,
-              src_pkts: 6,
-              dst_pkts: 10,
-              proto: "tcp",
-              service: "http",
-              conn_state: "SF",
-              missed_bytes: 0,
-            },
-            identifiers: {
-              src_ip: "192.168.1.105",
-              dst_ip: "10.0.0.1",
-              src_port: 54320,
-              dst_port: 80,
-            },
-          },
-          {
-            event_id: `evt-${batchId}-2`,
-            sensor_id: "zeek-sensor-lab-1",
-            event_time: new Date().toISOString(),
-            features: {
-              duration: 65.0,
-              src_bytes: 45000,
-              dst_bytes: 89000,
-              src_ip_bytes: 46200,
-              dst_ip_bytes: 91400,
-              src_pkts: 320,
-              dst_pkts: 480,
-              proto: "tcp",
-              service: "-",
-              conn_state: "S0",
-              missed_bytes: 140,
-            },
-            identifiers: {
-              src_ip: "172.16.0.44",
-              dst_ip: "10.0.0.1",
-              src_port: 41200,
-              dst_port: 445,
-            },
-          },
-        ],
-      };
-
-      const res = await fetch("http://localhost:8000/api/v1/ingestion/batches", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        const receipt = await res.json();
-        setBatchFeedback(`Accepted 2 events (${receipt.status}). Processing in queue.`);
-        setTimeout(loadData, 1500);
-      } else {
-        setBatchFeedback("Failed to ingest batch. Verify backend is running.");
-      }
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : String(e);
-      setBatchFeedback(`Connection error: ${message}`);
-    } finally {
-      setSubmittingBatch(false);
-    }
-  };
-
-  const advanceCanary = async () => {
-    setActingCanary(true);
-    setCanaryActionStatus(null);
-    try {
-      const res = await fetch("http://localhost:8000/api/v1/deployment/canary/advance", {
-        method: "POST",
-      });
-      if (res.ok) {
-        const state = await res.json();
-        setCanaryActionStatus(`Advanced canary weight to ${(state.canary_weight * 100).toFixed(0)}%`);
-        await loadData();
-      } else {
-        const err = await res.json();
-        setCanaryActionStatus(`Failed: ${err.detail || "No active candidate staged"}`);
-      }
-    } catch (e: unknown) {
-      setCanaryActionStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setActingCanary(false);
-    }
-  };
-
-  const rollbackCanary = async () => {
-    setActingCanary(true);
-    setCanaryActionStatus(null);
-    try {
-      const res = await fetch("http://localhost:8000/api/v1/deployment/canary/rollback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: "Manual operator abort from dashboard" }),
-      });
-      if (res.ok) {
-        setCanaryActionStatus("Warm rollback executed: 100% traffic restored to Champion.");
-        await loadData();
-      } else {
-        const err = await res.json();
-        setCanaryActionStatus(`Rollback failed: ${err.detail || "Unknown error"}`);
-      }
-    } catch (e: unknown) {
-      setCanaryActionStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setActingCanary(false);
-    }
-  };
-
-  const executeScenario = async (scenario: string) => {
-    setRunningScenario(true);
-    setScenarioResult(null);
-    try {
-      const res = await fetch("http://localhost:8000/api/v1/experiments/scenarios/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scenario }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setScenarioResult(data);
-        await loadData();
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setRunningScenario(false);
-    }
-  };
-
-  const getActionBadge = (action: RepairAction) => {
-    switch (action) {
-      case "A0":
-        return {
-          label: "A0: NOMINAL MONITORING",
-          desc: "Covariate drift within acceptable boundary. Zero compute consumed.",
-          color: "border-emerald-500/40 bg-emerald-950/40 text-emerald-400",
-        };
-      case "A1":
-        return {
-          label: "A1: THRESHOLD CALIBRATION",
-          desc: "Sub-second boundary adjustment without retraining.",
-          color: "border-cyan-500/40 bg-cyan-950/40 text-cyan-400",
-        };
-      case "A2":
-        return {
-          label: "A2: TARGETED ADAPTATION",
-          desc: "Localized subspace repair for isolated novel cluster.",
-          color: "border-amber-500/40 bg-amber-950/40 text-amber-400",
-        };
-      case "A3":
-        return {
-          label: "A3: FULL RETRAINING",
-          desc: "Broad structural degradation. Retraining champion pipeline.",
-          color: "border-rose-500/40 bg-rose-950/40 text-rose-400",
-        };
-    }
-  };
-
-  const fp = lifecycle.last_fingerprint as DamageFingerprint;
-  const actionBadge = getActionBadge(lifecycle.chosen_action || "A0");
+  const canaryPct = Math.round(lifecycle.canary_weight * 100);
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-8 md:px-8 max-w-7xl mx-auto">
-      {/* Top Banner / Navigation */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-6 mb-8 gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-            <Shield className="w-8 h-8" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight text-white font-mono">
-                SwayamKavach
-              </h1>
-              <span className="px-2 py-0.5 text-xs font-semibold rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-                MVP v0.1
-              </span>
-            </div>
-            <p className="text-xs text-slate-400">
-              Autonomous IoT Intrusion Detection & Damage-Aware Retraining (DARI)
-            </p>
-          </div>
-        </div>
+    <div className="space-y-6">
+      {/* High-Level Executive KPI Grid */}
+      <MetricsOverview lifecycle={lifecycle} alerts={alerts} />
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-xs">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                backendHealthy ? "bg-emerald-400 animate-pulse" : "bg-rose-500"
-              }`}
-            />
-            <span className="text-slate-300">
-              Backend: {backendHealthy ? "Online (:8000)" : "Offline"}
-            </span>
-          </div>
+      {/* DARI 7-Dimensional Damage Fingerprint */}
+      <DamageFingerprintCard
+        fingerprint={lifecycle.last_fingerprint}
+        chosenAction={lifecycle.chosen_action}
+      />
 
-          <div className="px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 text-xs text-slate-300">
-            Env: <span className="text-cyan-400 font-medium">Local Staging / Replay</span>
-          </div>
-
-          <button
-            onClick={loadData}
-            disabled={loading}
-            className="p-2 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 transition-colors"
-            title="Refresh State"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-          </button>
-        </div>
-      </header>
-
-      {/* KPI Stats Grid */}
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="p-4 rounded-xl border border-slate-800/80 bg-slate-900/50 backdrop-blur">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">Active Release</span>
-            <Cpu className="w-4 h-4 text-cyan-400" />
-          </div>
-          <div className="text-2xl font-bold text-white font-mono">{lifecycle.champion_release}</div>
-          <div className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3" /> Slot {lifecycle.active_slot} (100% Traffic)
-          </div>
-        </div>
-
-        <div className="p-4 rounded-xl border border-slate-800/80 bg-slate-900/50 backdrop-blur">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">Canary Routing</span>
-            <Layers className="w-4 h-4 text-purple-400" />
-          </div>
-          <div className="text-2xl font-bold text-white font-mono">
-            {(lifecycle.canary_weight * 100).toFixed(0)}%
-          </div>
-          <div className="text-xs text-slate-400 mt-1">
-            Candidate: {lifecycle.candidate_release || "Idle / Standby"}
-          </div>
-        </div>
-
-        <div className="p-4 rounded-xl border border-slate-800/80 bg-slate-900/50 backdrop-blur">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">DARI Policy Status</span>
-            <Activity className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="text-2xl font-bold text-emerald-400 font-mono">
-            {lifecycle.chosen_action || "A0"}
-          </div>
-          <div className="text-xs text-slate-400 mt-1">Normal Operating Baseline</div>
-        </div>
-
-        <div className="p-4 rounded-xl border border-slate-800/80 bg-slate-900/50 backdrop-blur">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">Active Alerts</span>
-            <AlertOctagon className="w-4 h-4 text-rose-400" />
-          </div>
-          <div className="text-2xl font-bold text-rose-400 font-mono">{alerts.length}</div>
-          <div className="text-xs text-slate-400 mt-1">Advisory security detections</div>
-        </div>
-      </section>
-
-      {/* Main Grid: DARI Fingerprint & Simulation */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        {/* DARI 7-Dimensional Damage Fingerprint */}
-        <section className="lg:col-span-2 p-6 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Radio className="w-5 h-5 text-cyan-400" /> DARI Damage Fingerprint & Repair Ladder
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Multi-dimensional damage assessment: Drift alone does not trigger full retraining.
-              </p>
-            </div>
-            <div className={`px-3 py-1 rounded-full text-xs font-semibold border ${actionBadge.color}`}>
-              {actionBadge.label}
-            </div>
-          </div>
-
-          <p className="text-xs text-slate-400 mb-6 bg-slate-950/60 p-3 rounded-lg border border-slate-800/60">
-            {actionBadge.desc}
-          </p>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/40">
-              <span className="text-xs text-slate-400">Distribution Drift (D_X)</span>
-              <div className="text-xl font-bold font-mono text-cyan-400 mt-1">
-                {(fp.D_X * 100).toFixed(1)}%
-              </div>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div
-                  className="bg-cyan-500 h-full rounded-full"
-                  style={{ width: `${Math.min(100, fp.D_X * 100)}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/40">
-              <span className="text-xs text-slate-400">Performance Drop (D_Y)</span>
-              <div className="text-xl font-bold font-mono text-purple-400 mt-1">
-                {fp.D_Y ? `${(fp.D_Y * 100).toFixed(1)}%` : "—"}
-              </div>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div
-                  className="bg-purple-500 h-full rounded-full"
-                  style={{ width: `${Math.min(100, (fp.D_Y || 0) * 100)}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/40">
-              <span className="text-xs text-slate-400">Boundary Uncertainty (D_B)</span>
-              <div className="text-xl font-bold font-mono text-amber-400 mt-1">
-                {(fp.D_B * 100).toFixed(1)}%
-              </div>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div
-                  className="bg-amber-500 h-full rounded-full"
-                  style={{ width: `${Math.min(100, fp.D_B * 100)}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/40">
-              <span className="text-xs text-slate-400">Data Quality (Q)</span>
-              <div className="text-xl font-bold font-mono text-emerald-400 mt-1">
-                {(fp.Q * 100).toFixed(1)}%
-              </div>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div
-                  className="bg-emerald-500 h-full rounded-full"
-                  style={{ width: `${Math.min(100, fp.Q * 100)}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/40">
-              <span className="text-xs text-slate-400">Label Freshness (L)</span>
-              <div className="text-xl font-bold font-mono text-blue-400 mt-1">
-                {(fp.L * 100).toFixed(1)}%
-              </div>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                <div
-                  className="bg-blue-500 h-full rounded-full"
-                  style={{ width: `${Math.min(100, fp.L * 100)}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/40">
-              <span className="text-xs text-slate-400">Window Samples (S)</span>
-              <div className="text-xl font-bold font-mono text-slate-200 mt-1">
-                {fp.S.toLocaleString()}
-              </div>
-              <div className="text-[10px] text-slate-400 mt-2">Persistence R = {fp.R} windows</div>
-            </div>
-          </div>
-        </section>
-
-        {/* Live Simulation Card */}
-        <section className="p-6 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur flex flex-col justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-2">
-              <Zap className="w-5 h-5 text-amber-400" /> Ingestion & E2E Spike
-            </h2>
-            <p className="text-xs text-slate-400 mb-4">
-              Trigger a test batch with 1 benign flow and 1 high-byte attack flow into the FastAPI
-              endpoint (:8000).
-            </p>
-
-            <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs font-mono text-slate-400 space-y-1 mb-4">
-              <div>Schema: ton-conn-5-v1</div>
-              <div>Destination: POST /api/v1/ingestion/batches</div>
-              <div>Target: Serving Slot A (R1)</div>
-            </div>
-          </div>
-
-          <div>
-            {batchFeedback && (
-              <div className="text-xs p-2.5 rounded-lg mb-3 bg-cyan-950/50 border border-cyan-800/50 text-cyan-300">
-                {batchFeedback}
-              </div>
-            )}
-
-            <button
-              onClick={sendTestBatch}
-              disabled={submittingBatch || !backendHealthy}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-600 font-semibold text-sm text-white transition-colors"
-            >
-              <Send className="w-4 h-4" />
-              {submittingBatch ? "Submitting Batch..." : "Inject Test Flows"}
-            </button>
-          </div>
-        </section>
-      </div>
-
-      {/* Two-Slot Canary Deployment & Autonomous Scenario Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        {/* Two-Slot Canary Controller */}
-        <section className="p-6 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Layers className="w-5 h-5 text-purple-400" /> Dual-Slot Canary Controller
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Staged rollout: 5% &rarr; 25% &rarr; 50% &rarr; 100% with immediate warm rollback.
-              </p>
-            </div>
-            <span className="px-2.5 py-1 text-xs rounded-lg font-mono font-medium border border-purple-800/60 bg-purple-950/40 text-purple-300">
-              Weight: {(lifecycle.canary_weight * 100).toFixed(0)}%
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-6 font-mono text-xs">
-            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/50">
-              <span className="text-slate-400 text-[11px]">Slot A (Primary)</span>
-              <div className="text-sm font-bold text-white mt-1">
-                {lifecycle.active_slot === "A" ? lifecycle.champion_release : lifecycle.candidate_release || "Idle"}
-              </div>
-              <div className="text-[11px] text-emerald-400 mt-1">
-                {lifecycle.active_slot === "A" ? `${((1 - lifecycle.canary_weight) * 100).toFixed(0)}% Traffic (Champ)` : `${(lifecycle.canary_weight * 100).toFixed(0)}% Traffic (Canary)`}
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/50">
-              <span className="text-slate-400 text-[11px]">Slot B (Secondary)</span>
-              <div className="text-sm font-bold text-white mt-1">
-                {lifecycle.active_slot === "B" ? lifecycle.champion_release : lifecycle.candidate_release || "Standby"}
-              </div>
-              <div className="text-[11px] text-purple-400 mt-1">
-                {lifecycle.active_slot === "B" ? `${((1 - lifecycle.canary_weight) * 100).toFixed(0)}% Traffic (Champ)` : `${(lifecycle.canary_weight * 100).toFixed(0)}% Traffic (Canary)`}
-              </div>
-            </div>
-          </div>
-
-          {canaryActionStatus && (
-            <div className="text-xs p-2.5 rounded-lg mb-4 bg-purple-950/40 border border-purple-800/50 text-purple-300">
-              {canaryActionStatus}
-            </div>
-          )}
-
-          <div className="flex gap-3">
-            <button
-              onClick={advanceCanary}
-              disabled={actingCanary || !lifecycle.candidate_release}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 disabled:text-slate-600 font-semibold text-xs text-white transition-colors"
-            >
-              <ArrowRight className="w-3.5 h-3.5" />
-              Advance Canary Stage
-            </button>
-            <button
-              onClick={rollbackCanary}
-              disabled={actingCanary}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 border border-rose-500/50 text-rose-300 font-semibold text-xs transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Warm Rollback
-            </button>
-          </div>
-        </section>
-
-        {/* Autonomous Scenario Simulator */}
-        <section className="p-6 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Play className="w-5 h-5 text-emerald-400" /> Scenario Injection Engine
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Execute streaming drift scenarios to verify self-healing invariants.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
-            <button
-              onClick={() => executeScenario("nominal")}
-              disabled={runningScenario}
-              className="p-2 text-xs font-semibold rounded-lg border border-slate-800 bg-slate-950/60 hover:bg-slate-800 text-slate-200 transition-colors text-left"
-            >
-              <div className="text-emerald-400 text-[10px]">A0 Baseline</div>
-              Nominal Traffic
-            </button>
-            <button
-              onClick={() => executeScenario("boundary_shift")}
-              disabled={runningScenario}
-              className="p-2 text-xs font-semibold rounded-lg border border-slate-800 bg-slate-950/60 hover:bg-slate-800 text-slate-200 transition-colors text-left"
-            >
-              <div className="text-cyan-400 text-[10px]">A1 Calibrate</div>
-              Boundary Shift
-            </button>
-            <button
-              onClick={() => executeScenario("localized_cluster")}
-              disabled={runningScenario}
-              className="p-2 text-xs font-semibold rounded-lg border border-slate-800 bg-slate-950/60 hover:bg-slate-800 text-slate-200 transition-colors text-left"
-            >
-              <div className="text-amber-400 text-[10px]">A2 Local</div>
-              Port Cluster Shift
-            </button>
-            <button
-              onClick={() => executeScenario("severe_attack")}
-              disabled={runningScenario}
-              className="p-2 text-xs font-semibold rounded-lg border border-slate-800 bg-slate-950/60 hover:bg-slate-800 text-slate-200 transition-colors text-left"
-            >
-              <div className="text-rose-400 text-[10px]">A3 Retrain</div>
-              Multi-Class Attack
-            </button>
-            <button
-              onClick={() => executeScenario("faulty_candidate_rejection")}
-              disabled={runningScenario}
-              className="p-2 text-xs font-semibold rounded-lg border border-slate-800 bg-slate-950/60 hover:bg-slate-800 text-slate-200 transition-colors text-left"
-            >
-              <div className="text-rose-400 text-[10px]">Gate Reject</div>
-              Faulty Candidate
-            </button>
-            <button
-              onClick={() => executeScenario("canary_watchdog_rollback")}
-              disabled={runningScenario}
-              className="p-2 text-xs font-semibold rounded-lg border border-slate-800 bg-slate-950/60 hover:bg-slate-800 text-slate-200 transition-colors text-left"
-            >
-              <div className="text-purple-400 text-[10px]">Watchdog</div>
-              Canary SLA Breach
-            </button>
-          </div>
-
-          {scenarioResult && (
-            <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/70 font-mono text-xs space-y-1 text-slate-300">
-              <div className="flex items-center justify-between text-white font-bold">
-                <span>Executed: {scenarioResult.scenario}</span>
-                <span className="text-cyan-400">Action: {scenarioResult.chosen_action}</span>
-              </div>
-              <div className="text-slate-400 text-[11px]">{scenarioResult.description}</div>
-              <div className="text-emerald-400 text-[11px]">
-                Deployment: {scenarioResult.deployment_action}
-              </div>
-              {scenarioResult.evaluation_verdict && (
-                <div className="text-amber-400 text-[11px]">
-                  Gate Verdict: {scenarioResult.evaluation_verdict}
+      {/* Two-Column Spacious Sections */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Canary Snapshot Card */}
+        <Card className="border-zinc-200 bg-white">
+          <CardHeader className="pb-3 border-b border-zinc-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 font-semibold">
+                    ROUTING
+                  </span>
+                  <CardTitle className="text-sm font-bold font-mono">
+                    Canary Traffic Routing Snapshot
+                  </CardTitle>
                 </div>
-              )}
+                <CardDescription className="mt-1 font-mono text-[11px]">
+                  Dual-slot serving architecture: Slot A (:8001) and Slot B (:8002).
+                </CardDescription>
+              </div>
+              <Link
+                href="/canary"
+                className="text-xs font-mono font-medium text-zinc-900 hover:underline"
+              >
+                [ OPEN CONTROLLER → ]
+              </Link>
             </div>
-          )}
-        </section>
-      </div>
-
-      {/* DARI vs Baselines Benchmark Scoreboard */}
-      <section className="p-6 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-cyan-400" /> DARI vs Baseline Benchmark Scoreboard
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Empirical evaluation across identical continuous 2,000-event streaming replay windows.
-            </p>
-          </div>
-          <button
-            onClick={fetchBenchmark}
-            disabled={loadingBenchmark}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-850 text-xs text-slate-300 transition-colors font-mono"
-          >
-            <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
-            {loadingBenchmark ? "Running Benchmark..." : "Re-Run Benchmark"}
-          </button>
-        </div>
-
-        {benchmarkReport ? (
-          <div className="space-y-4">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  <tr>
-                    <th className="py-3 px-4">Policy Strategy</th>
-                    <th className="py-3 px-4">Cumulative Recall</th>
-                    <th className="py-3 px-4">False Alarm (FPR)</th>
-                    <th className="py-3 px-4">Unnecessary Retrains</th>
-                    <th className="py-3 px-4">Compute Hours Saved</th>
-                    <th className="py-3 px-4">Label Savings</th>
-                    <th className="py-3 px-4">Recovery Time</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
-                  {Object.values(benchmarkReport.results).map((res) => {
-                    const isDari = res.policy === "dari";
-                    return (
-                      <tr
-                        key={res.policy}
-                        className={isDari ? "bg-cyan-950/20 text-cyan-300 font-bold" : "text-slate-300 hover:bg-slate-800/20"}
-                      >
-                        <td className="py-3 px-4 flex items-center gap-2">
-                          {isDari && <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />}
-                          <span className="uppercase">{res.policy.replace("_", " ")}</span>
-                        </td>
-                        <td className="py-3 px-4">{(res.cumulative_recall * 100).toFixed(1)}%</td>
-                        <td className="py-3 px-4">{(res.cumulative_fpr * 100).toFixed(2)}%</td>
-                        <td className="py-3 px-4">
-                          <span className={res.unnecessary_retrain_rate === 0 ? "text-emerald-400 font-bold" : "text-rose-400"}>
-                            {(res.unnecessary_retrain_rate * 100).toFixed(0)}%
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-emerald-400">
-                          {res.compute_savings_pct > 0 ? `+${res.compute_savings_pct.toFixed(1)}%` : "0.0%"}
-                        </td>
-                        <td className="py-3 px-4 text-emerald-400">
-                          {res.label_savings_pct > 0 ? `+${res.label_savings_pct.toFixed(1)}%` : "0.0%"}
-                        </td>
-                        <td className="py-3 px-4 text-slate-400">{res.mean_recovery_time_s.toFixed(2)}s</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          </CardHeader>
+          <CardContent className="pt-4 font-mono text-xs space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-lg border border-zinc-200 bg-zinc-50">
+                <div className="text-zinc-600 text-[11px]">Slot A (Champion)</div>
+                <div className="text-base font-bold text-zinc-950 mt-1">
+                  {lifecycle.champion_release}
+                </div>
+                <div className="text-[11px] text-emerald-700 font-semibold mt-1">
+                  {100 - canaryPct}% Serving Traffic
+                </div>
+              </div>
+              <div className="p-3 rounded-lg border border-zinc-200 bg-zinc-50">
+                <div className="text-zinc-600 text-[11px]">Slot B (Canary)</div>
+                <div className="text-base font-bold text-zinc-950 mt-1">
+                  {lifecycle.candidate_release || "Standby"}
+                </div>
+                <div className="text-[11px] text-zinc-700 font-semibold mt-1">
+                  {canaryPct}% Serving Traffic
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-slate-400 bg-slate-950/60 p-3 rounded-lg border border-slate-800/60 font-mono">
-              {benchmarkReport.summary_verdict}
-            </p>
-          </div>
-        ) : (
-          <div className="py-8 text-center text-slate-500 text-xs">Loading benchmark data...</div>
-        )}
-      </section>
+            <div className="text-[11px] text-zinc-600 pt-1">
+              Staged rollout schedule: 5% → 25% → 50% → 100% with automated sub-second watchdog rollback.
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Intrusion Alerts Table */}
-      <section className="p-6 rounded-2xl border border-slate-800 bg-slate-900/60 backdrop-blur">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              <AlertOctagon className="w-5 h-5 text-rose-400" /> Recent Security Intrusion Alerts
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Live advisory detections committed by the inference consumer.
-            </p>
-          </div>
-          <span className="text-xs font-mono text-slate-400">Total: {alerts.length}</span>
-        </div>
-
-        {alerts.length === 0 ? (
-          <div className="py-12 text-center text-slate-500 text-sm border border-dashed border-slate-800 rounded-xl">
-            No active intrusion alerts. Inject test flows above or replay TON_IoT traffic.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                <tr>
-                  <th className="py-3 px-4">Alert ID</th>
-                  <th className="py-3 px-4">Trigger Event</th>
-                  <th className="py-3 px-4">Severity</th>
-                  <th className="py-3 px-4">Model Score</th>
-                  <th className="py-3 px-4">Release</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Detected At</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
-                {alerts.map((alert) => (
-                  <tr key={alert.alert_id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="py-3 px-4 text-slate-200">{alert.alert_id}</td>
-                    <td className="py-3 px-4 text-slate-400">{alert.event_id}</td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[11px] font-semibold uppercase ${
+        {/* Quick Threat Snapshot Card */}
+        <Card className="border-zinc-200 bg-white">
+          <CardHeader className="pb-3 border-b border-zinc-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 font-semibold">
+                    SECURITY
+                  </span>
+                  <CardTitle className="text-sm font-bold font-mono">
+                    Recent Intrusion Detections
+                  </CardTitle>
+                </div>
+                <CardDescription className="mt-1 font-mono text-[11px]">
+                  Real-time sliding window: {alerts.length} advisory alerts committed.
+                </CardDescription>
+              </div>
+              <Link
+                href="/alerts"
+                className="text-xs font-mono font-medium text-zinc-900 hover:underline"
+              >
+                [ VIEW ALL ALERTS → ]
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4 font-mono text-xs">
+            {alerts.length === 0 ? (
+              <div className="py-8 text-center text-zinc-400 border border-dashed border-zinc-200 rounded-lg">
+                NO ACTIVE INTRUSIONS. SYSTEM NOMINAL.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {alerts.slice(0, 3).map((alert) => (
+                  <div
+                    key={alert.alert_id}
+                    className="p-2.5 rounded-lg border border-zinc-200 bg-zinc-50 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={
                           alert.severity === "critical"
-                            ? "bg-rose-950/80 text-rose-400 border border-rose-800/60"
+                            ? "destructive"
                             : alert.severity === "high"
-                            ? "bg-amber-950/80 text-amber-400 border border-amber-800/60"
-                            : "bg-blue-950/80 text-blue-400 border border-blue-800/60"
-                        }`}
+                            ? "warning"
+                            : "outline"
+                        }
+                        className="text-[9px] uppercase px-1 py-0 font-mono"
                       >
                         {alert.severity}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-cyan-400 font-bold">
+                      </Badge>
+                      <span className="font-semibold text-zinc-900">{alert.alert_id}</span>
+                      <span className="text-zinc-500 text-[11px]">({alert.event_id})</span>
+                    </div>
+                    <span className="font-bold text-zinc-950">
                       {(alert.score * 100).toFixed(1)}%
-                    </td>
-                    <td className="py-3 px-4 text-slate-300">{alert.release_id}</td>
-                    <td className="py-3 px-4 text-emerald-400">{alert.status}</td>
-                    <td className="py-3 px-4 text-slate-500">
-                      {new Date(alert.created_at).toLocaleTimeString()}
-                    </td>
-                  </tr>
+                    </span>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </main>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Launchpad to other routes */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+        <Link
+          href="/scenarios"
+          className="p-4 rounded-xl border border-zinc-200 bg-white hover:border-zinc-400 hover:bg-zinc-50 transition-all font-mono text-xs space-y-1 block"
+        >
+          <div className="font-bold text-zinc-950">[ 03 ] Drift Simulator →</div>
+          <p className="text-zinc-600 text-[11px] font-sans">
+            Inject synthetic boundary shift, cluster attacks, and verify self-healing invariants.
+          </p>
+        </Link>
+
+        <Link
+          href="/ingestion"
+          className="p-4 rounded-xl border border-zinc-200 bg-white hover:border-zinc-400 hover:bg-zinc-50 transition-all font-mono text-xs space-y-1 block"
+        >
+          <div className="font-bold text-zinc-950">[ 04 ] Packet Ingestion Probe →</div>
+          <p className="text-zinc-600 text-[11px] font-sans">
+            Inject TON_IoT 5-feature packets to test stream consumer and serving latency.
+          </p>
+        </Link>
+
+        <Link
+          href="/benchmarks"
+          className="p-4 rounded-xl border border-zinc-200 bg-white hover:border-zinc-400 hover:bg-zinc-50 transition-all font-mono text-xs space-y-1 block"
+        >
+          <div className="font-bold text-zinc-950">[ 05 ] Empirical Scoreboard →</div>
+          <p className="text-zinc-600 text-[11px] font-sans">
+            Compare DARI against periodic retrain, drift retrain, and fixed baseline policies.
+          </p>
+        </Link>
+      </div>
+    </div>
   );
 }
