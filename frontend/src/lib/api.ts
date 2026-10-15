@@ -139,3 +139,46 @@ export async function ingestFlowBatch(
   }
   return await res.json();
 }
+
+export async function fetchStreamStatus(): Promise<import("@/types/contracts").StreamStatus> {
+  const res = await fetch(`${API_BASE_URL}/stream/status`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch stream status");
+  return await res.json();
+}
+
+export async function startReplayStream(): Promise<Record<string, unknown>> {
+  const res = await fetch(`${API_BASE_URL}/stream/replay/start`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to start replay stream");
+  return await res.json();
+}
+
+export async function stopReplayStream(): Promise<Record<string, unknown>> {
+  const res = await fetch(`${API_BASE_URL}/stream/replay/stop`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to stop replay stream");
+  return await res.json();
+}
+
+export async function startSnifferStream(): Promise<Record<string, unknown>> {
+  const res = await fetch(`${API_BASE_URL}/stream/sniffer/start`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to start sniffer stream");
+  return await res.json();
+}
+
+export async function stopSnifferStream(): Promise<Record<string, unknown>> {
+  const res = await fetch(`${API_BASE_URL}/stream/sniffer/stop`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to stop sniffer stream");
+  return await res.json();
+}
+
+export async function startAllStreams(): Promise<Record<string, unknown>> {
+  const res = await fetch(`${API_BASE_URL}/stream/all/start`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to start all streams");
+  return await res.json();
+}
+
+export async function stopAllStreams(): Promise<Record<string, unknown>> {
+  const res = await fetch(`${API_BASE_URL}/stream/all/stop`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to stop all streams");
+  return await res.json();
+}
+

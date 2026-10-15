@@ -124,3 +124,28 @@ export interface ScenarioRunResult {
   details: Record<string, unknown>;
   executed_at: string;
 }
+
+export interface ReplayStreamStatus {
+  is_running: boolean;
+  batches_sent: number;
+  events_sent: number;
+  batch_size: number;
+  last_batch_time: string | null;
+}
+
+export interface SnifferStreamStatus {
+  is_running: boolean;
+  packets_captured: number;
+  flows_ingested: number;
+  active_flows_in_buffer: number;
+  last_packet_time: string | null;
+  interface: string;
+}
+
+export interface StreamStatus {
+  replay: ReplayStreamStatus;
+  sniffer: SnifferStreamStatus;
+  any_active: boolean;
+  both_active: boolean;
+}
+

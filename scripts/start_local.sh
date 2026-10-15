@@ -36,21 +36,28 @@ fi
 
 cd "${REPO_ROOT}/backend"
 
+export PYTHONPATH="${REPO_ROOT}/backend/src:${REPO_ROOT}/backend:${PYTHONPATH:-}"
+VENV_BIN="${REPO_ROOT}/backend/.venv/bin"
+
 echo -e "${BOLD}[1/4] Starting API Control Plane on http://localhost:8000...${RESET}"
-nohup uv run uvicorn swayamkavach.api.main:app --host 0.0.0.0 --port 8000 > "${LOG_DIR}/api.log" 2>&1 &
+nohup "${VENV_BIN}/uvicorn" swayamkavach.api.main:app --host 0.0.0.0 --port 8000 > "${LOG_DIR}/api.log" 2>&1 &
 echo $! > "${PID_DIR}/api.pid"
+disown
 
 echo -e "${BOLD}[2/4] Starting Champion Serving Slot A on http://localhost:8001...${RESET}"
-nohup env SLOT_ID=A RELEASE_ID=R1 uv run uvicorn swayamkavach.serving.app:app --host 0.0.0.0 --port 8001 > "${LOG_DIR}/serving_a.log" 2>&1 &
+nohup env SLOT_ID=A RELEASE_ID=R1 "${VENV_BIN}/uvicorn" swayamkavach.serving.app:app --host 0.0.0.0 --port 8001 > "${LOG_DIR}/serving_a.log" 2>&1 &
 echo $! > "${PID_DIR}/serving_a.pid"
+disown
 
 echo -e "${BOLD}[3/4] Starting Standby Serving Slot B on http://localhost:8002...${RESET}"
-nohup env SLOT_ID=B RELEASE_ID=R1 uv run uvicorn swayamkavach.serving.app:app --host 0.0.0.0 --port 8002 > "${LOG_DIR}/serving_b.log" 2>&1 &
+nohup env SLOT_ID=B RELEASE_ID=R1 "${VENV_BIN}/uvicorn" swayamkavach.serving.app:app --host 0.0.0.0 --port 8002 > "${LOG_DIR}/serving_b.log" 2>&1 &
 echo $! > "${PID_DIR}/serving_b.pid"
+disown
 
 echo -e "${BOLD}[4/4] Starting Inference Consumer Worker...${RESET}"
-nohup uv run python src/swayamkavach/inference_consumer.py > "${LOG_DIR}/consumer.log" 2>&1 &
+nohup "${VENV_BIN}/python" src/swayamkavach/inference_consumer.py > "${LOG_DIR}/consumer.log" 2>&1 &
 echo $! > "${PID_DIR}/consumer.pid"
+disown
 
 cd "${REPO_ROOT}"
 

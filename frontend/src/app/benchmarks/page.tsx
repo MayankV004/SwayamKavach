@@ -3,7 +3,8 @@
 import React from "react";
 import { useDashboard } from "@/context/DashboardContext";
 import { BenchmarkScoreboard } from "@/components/dashboard/BenchmarkScoreboard";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Cpu, Tag, RotateCcw } from "lucide-react";
 
 export default function BenchmarksPage() {
   const { benchmarkReport, loadingBenchmark, refreshBenchmark } = useDashboard();
@@ -17,47 +18,65 @@ export default function BenchmarksPage() {
         onRefreshBenchmark={refreshBenchmark}
       />
 
-      {/* Analysis & Efficiency Proof Cards */}
+      {/* Analysis & Efficiency Proof Cards with Big Numbers */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-zinc-200 bg-white">
-          <CardHeader className="pb-3 border-b border-zinc-100">
-            <CardTitle className="text-sm font-bold font-mono">
-              [ COMPUTE SAVINGS: +71.4% ]
+        <Card className="border-zinc-200/90 bg-white shadow-xs flex flex-col justify-between">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2 mb-1">
+              <Cpu className="h-4 w-4 text-emerald-600" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Compute Savings
+              </span>
+            </div>
+            <div className="text-4xl lg:text-5xl font-extrabold text-emerald-700 tracking-tight tabular-nums my-1">
+              +71.4%
+            </div>
+            <CardTitle className="text-sm font-bold text-zinc-950">
+              Elimination of Redundant Model Refits
             </CardTitle>
-            <CardDescription className="font-mono text-[11px]">
-              Elimination of redundant model refits.
-            </CardDescription>
           </CardHeader>
-          <CardContent className="pt-4 font-mono text-xs text-zinc-600 leading-relaxed">
-            Standard periodic and naive drift-triggered retrain policies refit the entire gradient boosted pipeline whenever KS test detects drift, consuming hours of CPU/GPU compute. DARI handles boundary uncertainty with sub-second threshold calibration (A1) and nominal covariate drift with continuous monitoring (A0).
+          <CardContent className="text-xs text-zinc-600 leading-relaxed pt-2">
+            Standard periodic and naive drift-triggered retrain policies refit the entire gradient boosted pipeline whenever KS test detects drift, consuming hours of CPU and GPU compute. DARI handles boundary uncertainty with sub-second threshold calibration (A1) and nominal covariate drift with continuous monitoring (A0).
           </CardContent>
         </Card>
 
-        <Card className="border-zinc-200 bg-white">
-          <CardHeader className="pb-3 border-b border-zinc-100">
-            <CardTitle className="text-sm font-bold font-mono">
-              [ LABEL SAVINGS: +93.2% ]
+        <Card className="border-zinc-200/90 bg-white shadow-xs flex flex-col justify-between">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2 mb-1">
+              <Tag className="h-4 w-4 text-emerald-600" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Label Savings
+              </span>
+            </div>
+            <div className="text-4xl lg:text-5xl font-extrabold text-emerald-700 tracking-tight tabular-nums my-1">
+              +93.2%
+            </div>
+            <CardTitle className="text-sm font-bold text-zinc-950">
+              Minimizing Expensive Expert Annotations
             </CardTitle>
-            <CardDescription className="font-mono text-[11px]">
-              Minimizing expensive IoT expert annotations.
-            </CardDescription>
           </CardHeader>
-          <CardContent className="pt-4 font-mono text-xs text-zinc-600 leading-relaxed">
+          <CardContent className="text-xs text-zinc-600 leading-relaxed pt-2">
             In IoT and OT environments, ground truth labels require human incident triage or honeypot verification. By resolving benign covariate shifts at Level A0 without requesting new ground truth, DARI slashes labeling consumption by more than 93%.
           </CardContent>
         </Card>
 
-        <Card className="border-zinc-200 bg-white">
-          <CardHeader className="pb-3 border-b border-zinc-100">
-            <CardTitle className="text-sm font-bold font-mono">
-              [ 0% UNNECESSARY RETRAINS ]
+        <Card className="border-zinc-200/90 bg-white shadow-xs flex flex-col justify-between">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2 mb-1">
+              <RotateCcw className="h-4 w-4 text-zinc-700" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Retrain Accuracy
+              </span>
+            </div>
+            <div className="text-4xl lg:text-5xl font-extrabold text-zinc-950 tracking-tight tabular-nums my-1">
+              0.0%
+            </div>
+            <CardTitle className="text-sm font-bold text-zinc-950">
+              Zero Unnecessary Retrain Cycles
             </CardTitle>
-            <CardDescription className="font-mono text-[11px]">
-              Preserving serving pipeline stability.
-            </CardDescription>
           </CardHeader>
-          <CardContent className="pt-4 font-mono text-xs text-zinc-600 leading-relaxed">
-            Naive drift-triggered retrainers trigger 80% to 100% unnecessary retrain cycles during benign shifts in traffic patterns (e.g. day/night volume shifts). DARI achieves 0.0% unnecessary retrains by gating candidate building behind verified model damage ($D_Y$).
+          <CardContent className="text-xs text-zinc-600 leading-relaxed pt-2">
+            Naive drift-triggered retrainers trigger 80% to 100% unnecessary retrain cycles during benign shifts in traffic patterns (e.g. day or night volume shifts). DARI achieves 0.0% unnecessary retrains by gating candidate building behind verified model damage (D_Y).
           </CardContent>
         </Card>
       </div>

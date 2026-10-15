@@ -6,6 +6,7 @@ import {
   BenchmarkReport,
   LifecycleState,
   ScenarioRunResult,
+  StreamStatus,
 } from "@/types/contracts";
 import {
   fetchHealth,
@@ -16,6 +17,13 @@ import {
   advanceCanaryRollout,
   rollbackCanaryRollout,
   ingestFlowBatch,
+  fetchStreamStatus,
+  startReplayStream,
+  stopReplayStream,
+  startSnifferStream,
+  stopSnifferStream,
+  startAllStreams,
+  stopAllStreams,
 } from "@/lib/api";
 
 interface DashboardContextType {
@@ -33,12 +41,19 @@ interface DashboardContextType {
   benchmarkReport: BenchmarkReport | null;
   loadingBenchmark: boolean;
   lifecycle: LifecycleState;
+  streamStatus: StreamStatus | null;
+  togglingStream: boolean;
+  streamFeedback: string | null;
   loadData: () => Promise<void>;
   refreshBenchmark: () => Promise<void>;
   sendTestBatch: () => Promise<void>;
   advanceCanary: () => Promise<void>;
   rollbackCanary: () => Promise<void>;
   executeScenario: (scenario: string) => Promise<void>;
+  toggleReplayStream: () => Promise<void>;
+  toggleSnifferStream: () => Promise<void>;
+  startBothStreams: () => Promise<void>;
+  stopBothStreams: () => Promise<void>;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -59,6 +74,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   const [benchmarkReport, setBenchmarkReport] = useState<BenchmarkReport | null>(null);
   const [loadingBenchmark, setLoadingBenchmark] = useState<boolean>(false);
+
+  const [streamStatus, setStreamStatus] = useState<StreamStatus | null>(null);
+  const [togglingStream, setTogglingStream] = useState<boolean>(false);
+  const [streamFeedback, setStreamFeedback] = useState<string | null>(null);
 
   const [lifecycle, setLifecycle] = useState<LifecycleState>({
     champion_release: "R1",
@@ -103,6 +122,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setLifecycle(lc);
     } catch (e) {
       console.error(e);
+    }
+
+    try {
+      const stream = await fetchStreamStatus();
+      setStreamStatus(stream);
+    } catch {
+      // ignore if stream route offline
     } finally {
       setLoading(false);
     }
@@ -134,13 +160,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
     const interval = setInterval(() => {
       void loadData();
-    }, 10000);
+    }, streamStatus?.any_active ? 2000 : 5000);
 
     return () => {
       ignore = true;
       clearInterval(interval);
     };
-  }, [loadData, refreshBenchmark]);
+  }, [loadData, refreshBenchmark, streamStatus?.any_active]);
 
   const sendTestBatch = async () => {
     setSubmittingBatch(true);
@@ -265,6 +291,84 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const toggleReplayStream = async () => {
+    setTogglingStream(true);
+    setStreamFeedback(null);
+    try {
+      if (streamStatus?.replay?.is_running) {
+        await stopReplayStream();
+        setStreamFeedback("IoT Replay Stream stopped.");
+      } else {
+        await startReplayStream();
+        setStreamFeedback("IoT Replay Stream started (streaming ToN_IoT packets).");
+      }
+      const s = await fetchStreamStatus();
+      setStreamStatus(s);
+      await loadData();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setStreamFeedback(`Replay toggle error: ${msg}`);
+    } finally {
+      setTogglingStream(false);
+    }
+  };
+
+  const toggleSnifferStream = async () => {
+    setTogglingStream(true);
+    setStreamFeedback(null);
+    try {
+      if (streamStatus?.sniffer?.is_running) {
+        await stopSnifferStream();
+        setStreamFeedback("Host Live Sniffer stopped.");
+      } else {
+        await startSnifferStream();
+        setStreamFeedback("Host Live Sniffer started (capturing real WiFi/LAN packets).");
+      }
+      const s = await fetchStreamStatus();
+      setStreamStatus(s);
+      await loadData();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setStreamFeedback(`Sniffer toggle error: ${msg}`);
+    } finally {
+      setTogglingStream(false);
+    }
+  };
+
+  const startBothStreams = async () => {
+    setTogglingStream(true);
+    setStreamFeedback(null);
+    try {
+      await startAllStreams();
+      setStreamFeedback("Both streams active: IoT Replay + Host Live WiFi Sniffer.");
+      const s = await fetchStreamStatus();
+      setStreamStatus(s);
+      await loadData();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setStreamFeedback(`Error starting all streams: ${msg}`);
+    } finally {
+      setTogglingStream(false);
+    }
+  };
+
+  const stopBothStreams = async () => {
+    setTogglingStream(true);
+    setStreamFeedback(null);
+    try {
+      await stopAllStreams();
+      setStreamFeedback("All network streams stopped.");
+      const s = await fetchStreamStatus();
+      setStreamStatus(s);
+      await loadData();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setStreamFeedback(`Error stopping all streams: ${msg}`);
+    } finally {
+      setTogglingStream(false);
+    }
+  };
+
   return (
     <DashboardContext.Provider
       value={{
@@ -282,12 +386,19 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         benchmarkReport,
         loadingBenchmark,
         lifecycle,
+        streamStatus,
+        togglingStream,
+        streamFeedback,
         loadData,
         refreshBenchmark,
         sendTestBatch,
         advanceCanary,
         rollbackCanary,
         executeScenario,
+        toggleReplayStream,
+        toggleSnifferStream,
+        startBothStreams,
+        stopBothStreams,
       }}
     >
       {children}

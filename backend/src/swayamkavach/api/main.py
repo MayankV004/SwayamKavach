@@ -14,6 +14,7 @@ from swayamkavach.api.routes.health import router as health_router
 from swayamkavach.api.routes.ingestion import router as ingestion_router
 from swayamkavach.api.routes.labels import router as labels_router
 from swayamkavach.api.routes.lifecycle import router as lifecycle_router
+from swayamkavach.api.routes.stream import router as stream_router
 from swayamkavach.db.session import init_db
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -55,6 +56,7 @@ app.include_router(labels_router, prefix="/api/v1")
 app.include_router(evaluation_router, prefix="/api/v1")
 app.include_router(deployment_router, prefix="/api/v1")
 app.include_router(experiments_router, prefix="/api/v1")
+app.include_router(stream_router, prefix="/api/v1")
 
 
 

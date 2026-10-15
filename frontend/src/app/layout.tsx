@@ -16,14 +16,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-white text-zinc-950 font-sans antialiased selection:bg-zinc-900 selection:text-white">
+      <body className="min-h-screen bg-zinc-50/50 text-zinc-950 font-sans antialiased selection:bg-zinc-900 selection:text-white">
         <DashboardProvider>
-          <div className="flex h-screen overflow-hidden bg-white">
+          <div className="flex h-screen overflow-hidden bg-zinc-50/50">
             {/* Collapsible Sidebar */}
             <Sidebar />
 
             {/* Main Content Area */}
-            <div className="flex flex-col flex-1 min-w-0 overflow-y-auto">
+            <div className="flex flex-col flex-1 min-w-0 overflow-y-auto bg-zinc-50/50">
               <Header />
               <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto animate-fade-in">
                 {children}

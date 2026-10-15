@@ -18,25 +18,25 @@ export function MetricsOverview({ lifecycle, alerts }: MetricsOverviewProps) {
     switch (action) {
       case "A0":
         return {
-          title: "A0 · NOMINAL MONITORING",
+          title: "Nominal Monitoring",
           desc: "Covariate drift within acceptable boundary. Zero compute cost.",
           badgeVariant: "success" as const,
         };
       case "A1":
         return {
-          title: "A1 · THRESHOLD CALIBRATION",
+          title: "Threshold Calibration",
           desc: "Sub-second boundary adjustment without pipeline rebuild.",
           badgeVariant: "info" as const,
         };
       case "A2":
         return {
-          title: "A2 · TARGETED ADAPTATION",
+          title: "Targeted Adaptation",
           desc: "Localized subspace repair for isolated cluster shift.",
           badgeVariant: "warning" as const,
         };
       case "A3":
         return {
-          title: "A3 · FULL RETRAINING",
+          title: "Full Retraining",
           desc: "Broad structural degradation. Retraining champion pipeline.",
           badgeVariant: "destructive" as const,
         };
@@ -48,128 +48,154 @@ export function MetricsOverview({ lifecycle, alerts }: MetricsOverviewProps) {
   const championTrafficPct = 100 - canaryPct;
 
   return (
-    <div className="border-y border-zinc-200 py-6 bg-white">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200">
-        {/* 1. Champion Release */}
-        <div className="px-0 sm:px-6 first:pl-0 last:pr-0 py-4 sm:py-0 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between text-zinc-500 mb-2 font-mono text-[11px]">
-              <span className="font-semibold uppercase tracking-wider text-zinc-900">
-                01 / CHAMPION MODEL
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+      {/* 1. Champion Release */}
+      <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-xs flex flex-col justify-between hover:border-zinc-300 transition-colors">
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-zinc-100 text-[11px] font-bold text-zinc-700">
+                01
               </span>
-              <span className="text-[10px] text-zinc-500 font-mono">
-                SLOT {lifecycle.active_slot}
-              </span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold font-mono tracking-tight text-zinc-950">
-                {lifecycle.champion_release}
-              </span>
-              <span className="text-xs font-mono text-zinc-500">
-                HIST_GB
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Champion Model
               </span>
             </div>
+            <Badge variant="outline" className="text-[11px] font-medium border-zinc-200 bg-zinc-50 text-zinc-600">
+              Slot {lifecycle.active_slot}
+            </Badge>
           </div>
-          <div className="mt-4 flex items-center justify-between font-mono text-[11px] text-zinc-600">
-            <span className="text-emerald-700 font-medium">
-              {championTrafficPct}% SERVING TRAFFIC
+
+          <div className="flex items-baseline gap-2.5 my-2">
+            <span className="text-4xl lg:text-5xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
+              {lifecycle.champion_release}
             </span>
-            <span className="text-zinc-400">alias: champion</span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700">
+              HistGradientBoosting
+            </span>
           </div>
         </div>
 
-        {/* 2. Canary Staged Rollout */}
-        <div className="px-0 sm:px-6 first:pl-0 last:pr-0 py-4 sm:py-0 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between text-zinc-500 mb-2 font-mono text-[11px]">
-              <span className="font-semibold uppercase tracking-wider text-zinc-900">
-                02 / CANARY ROUTING
+        <div className="pt-3 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-600">
+          <span className="font-semibold text-emerald-700">
+            {championTrafficPct}% Serving Traffic
+          </span>
+          <span className="text-zinc-400">alias: champion</span>
+        </div>
+      </div>
+
+      {/* 2. Canary Staged Rollout */}
+      <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-xs flex flex-col justify-between hover:border-zinc-300 transition-colors">
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-zinc-100 text-[11px] font-bold text-zinc-700">
+                02
               </span>
-              <span className="text-[10px] text-zinc-500 font-mono">
-                SLOT {lifecycle.candidate_slot || (lifecycle.active_slot === "A" ? "B" : "A")}
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Canary Routing
               </span>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold font-mono tracking-tight text-zinc-950">
-                {canaryPct}%
+            <Badge variant="outline" className="text-[11px] font-medium border-zinc-200 bg-zinc-50 text-zinc-600">
+              Slot {lifecycle.candidate_slot || (lifecycle.active_slot === "A" ? "B" : "A")}
+            </Badge>
+          </div>
+
+          <div className="flex items-baseline gap-2.5 my-2">
+            <span className="text-4xl lg:text-5xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
+              {canaryPct}%
+            </span>
+            <Badge
+              variant={canaryPct > 0 ? "purple" : "secondary"}
+              className="text-xs font-medium"
+            >
+              {canaryPct > 0 ? "Canary Staged" : "Standby"}
+            </Badge>
+          </div>
+        </div>
+
+        <div className="pt-3 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-600">
+          <span className="truncate max-w-[160px] font-medium text-zinc-700">
+            {lifecycle.candidate_release ? `Candidate: ${lifecycle.candidate_release}` : "Standby (Idle)"}
+          </span>
+          <span className="text-zinc-400">5% → 100%</span>
+        </div>
+      </div>
+
+      {/* 3. DARI Repair Ladder Status */}
+      <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-xs flex flex-col justify-between hover:border-zinc-300 transition-colors">
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-zinc-100 text-[11px] font-bold text-zinc-700">
+                03
               </span>
-              <Badge
-                variant={canaryPct > 0 ? "purple" : "secondary"}
-                className="font-mono text-[10px] uppercase rounded-none px-1.5 py-0"
-              >
-                {canaryPct > 0 ? "Active Canary" : "Standby"}
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Repair Action
+              </span>
+            </div>
+            <Badge variant="outline" className="text-[11px] font-medium border-zinc-200 bg-zinc-50 text-zinc-600">
+              Policy P1
+            </Badge>
+          </div>
+
+          <div className="flex items-baseline gap-2.5 my-2">
+            <span className="text-4xl lg:text-5xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
+              {lifecycle.chosen_action || "A0"}
+            </span>
+            <Badge
+              variant={actionInfo.badgeVariant}
+              className="text-xs font-medium"
+            >
+              {actionInfo.title}
+            </Badge>
+          </div>
+        </div>
+
+        <div className="pt-3 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-600">
+          <span className="truncate font-medium text-zinc-700">
+            {lifecycle.chosen_action === "A0" ? "Zero compute consumed" : "Intervention active"}
+          </span>
+          <span className="text-zinc-400">ladder</span>
+        </div>
+      </div>
+
+      {/* 4. Active Threat Telemetry */}
+      <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-xs flex flex-col justify-between hover:border-zinc-300 transition-colors">
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-zinc-100 text-[11px] font-bold text-zinc-700">
+                04
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Threat Alerts
+              </span>
+            </div>
+            <Badge variant="outline" className="text-[11px] font-medium border-zinc-200 bg-zinc-50 text-zinc-600">
+              Live Stream
+            </Badge>
+          </div>
+
+          <div className="flex items-baseline gap-2.5 my-2">
+            <span className="text-4xl lg:text-5xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
+              {alerts.length}
+            </span>
+            {criticalAlertsCount > 0 ? (
+              <Badge variant="destructive" className="text-xs font-medium">
+                {criticalAlertsCount} Critical &amp; High
               </Badge>
-            </div>
-          </div>
-          <div className="mt-4 flex items-center justify-between font-mono text-[11px] text-zinc-600">
-            <span className="truncate max-w-[150px]">
-              Cand: {lifecycle.candidate_release || "None staged"}
-            </span>
-            <span className="text-zinc-400">5% → 100%</span>
-          </div>
-        </div>
-
-        {/* 3. DARI Repair Ladder Status */}
-        <div className="px-0 sm:px-6 first:pl-0 last:pr-0 py-4 sm:py-0 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between text-zinc-500 mb-2 font-mono text-[11px]">
-              <span className="font-semibold uppercase tracking-wider text-zinc-900">
-                03 / REPAIR ACTION
-              </span>
-              <span className="text-[10px] text-zinc-500 font-mono">
-                POLICY P1
-              </span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold font-mono tracking-tight text-zinc-950">
-                {lifecycle.chosen_action || "A0"}
-              </span>
-              <Badge
-                variant={actionInfo.badgeVariant}
-                className="font-mono text-[10px] uppercase rounded-none px-1.5 py-0"
-              >
-                {actionInfo.title.split(" · ")[1] || "Nominal"}
+            ) : (
+              <Badge variant="success" className="text-xs font-medium">
+                Clean State
               </Badge>
-            </div>
-          </div>
-          <div className="mt-4 flex items-center justify-between font-mono text-[11px] text-zinc-600">
-            <span className="truncate">
-              {lifecycle.chosen_action === "A0" ? "Zero compute consumed" : "Intervention active"}
-            </span>
-            <span className="text-zinc-400">ladder</span>
+            )}
           </div>
         </div>
 
-        {/* 4. Active Threat Telemetry */}
-        <div className="px-0 sm:px-6 first:pl-0 last:pr-0 py-4 sm:py-0 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between text-zinc-500 mb-2 font-mono text-[11px]">
-              <span className="font-semibold uppercase tracking-wider text-zinc-900">
-                04 / THREAT ALERTS
-              </span>
-              <span className="text-[10px] text-zinc-500 font-mono">
-                STREAM
-              </span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold font-mono tracking-tight text-zinc-950">
-                {alerts.length}
-              </span>
-              {criticalAlertsCount > 0 ? (
-                <Badge variant="destructive" className="font-mono text-[10px] uppercase rounded-none px-1.5 py-0">
-                  {criticalAlertsCount} High/Crit
-                </Badge>
-              ) : (
-                <Badge variant="success" className="font-mono text-[10px] uppercase rounded-none px-1.5 py-0">
-                  Clean
-                </Badge>
-              )}
-            </div>
-          </div>
-          <div className="mt-4 flex items-center justify-between font-mono text-[11px] text-zinc-600">
-            <span>Advisory feed</span>
-            <span className="text-zinc-400">fastapi :8000</span>
-          </div>
+        <div className="pt-3 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-600">
+          <span className="font-medium text-zinc-700">Real-time advisory feed</span>
+          <span className="text-zinc-400">:8000</span>
         </div>
       </div>
     </div>

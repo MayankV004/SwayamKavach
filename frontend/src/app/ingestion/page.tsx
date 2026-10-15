@@ -4,83 +4,109 @@ import React from "react";
 import { useDashboard } from "@/context/DashboardContext";
 import { TrafficIngestionCard } from "@/components/dashboard/TrafficIngestionCard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { FileSpreadsheet, ShieldCheck } from "lucide-react";
 
 export default function IngestionPage() {
-  const { submittingBatch, batchFeedback, backendHealthy, sendTestBatch } = useDashboard();
+  const {
+    submittingBatch,
+    batchFeedback,
+    backendHealthy,
+    sendTestBatch,
+    streamStatus,
+    togglingStream,
+    streamFeedback,
+    toggleReplayStream,
+    toggleSnifferStream,
+    startBothStreams,
+    stopBothStreams,
+  } = useDashboard();
 
   return (
     <div className="space-y-6">
-      {/* Probe Card */}
+      {/* Live Stream & Ingestion Controller */}
       <TrafficIngestionCard
         submittingBatch={submittingBatch}
         batchFeedback={batchFeedback}
         backendHealthy={backendHealthy}
         onSendTestBatch={sendTestBatch}
+        streamStatus={streamStatus}
+        togglingStream={togglingStream}
+        streamFeedback={streamFeedback}
+        onToggleReplay={toggleReplayStream}
+        onToggleSniffer={toggleSnifferStream}
+        onStartBoth={startBothStreams}
+        onStopBoth={stopBothStreams}
       />
 
       {/* Contract & Extractor Documentation */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="border-zinc-200 bg-white">
+        <Card className="border-zinc-200/90 bg-white shadow-xs">
           <CardHeader className="pb-3 border-b border-zinc-100">
-            <CardTitle className="text-sm font-bold font-mono">
-              [ TON_IOT SCHEMA SPECIFICATION ]
-            </CardTitle>
-            <CardDescription className="font-mono text-[11px]">
-              Features extracted by pinned Zeek extractor v1.
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet className="h-4 w-4 text-zinc-600" />
+              <CardTitle className="text-base font-bold text-zinc-950">
+                ToN_IoT Schema Specification
+              </CardTitle>
+            </div>
+            <CardDescription className="text-xs text-zinc-500">
+              5 connection features extracted by pinned Zeek network extractor v1
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-4 font-mono text-xs space-y-2.5">
-            <div className="p-2.5 rounded bg-zinc-50 border border-zinc-200">
-              <span className="font-bold text-zinc-900">duration</span>
-              <span className="text-zinc-500 text-[11px] block">Connection length in seconds (float)</span>
+          <CardContent className="pt-4 text-xs space-y-2.5">
+            <div className="p-3 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+              <span className="font-bold text-zinc-900 block font-mono">duration</span>
+              <span className="text-zinc-600 text-xs">Connection duration in seconds (float)</span>
             </div>
-            <div className="p-2.5 rounded bg-zinc-50 border border-zinc-200">
-              <span className="font-bold text-zinc-900">src_bytes</span>
-              <span className="text-zinc-500 text-[11px] block">Payload bytes sent by source host (int)</span>
+            <div className="p-3 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+              <span className="font-bold text-zinc-900 block font-mono">src_bytes</span>
+              <span className="text-zinc-600 text-xs">Payload bytes sent by origin host (int)</span>
             </div>
-            <div className="p-2.5 rounded bg-zinc-50 border border-zinc-200">
-              <span className="font-bold text-zinc-900">dst_bytes</span>
-              <span className="text-zinc-500 text-[11px] block">Payload bytes sent by destination host (int)</span>
+            <div className="p-3 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+              <span className="font-bold text-zinc-900 block font-mono">dst_bytes</span>
+              <span className="text-zinc-600 text-xs">Payload bytes sent by destination host (int)</span>
             </div>
-            <div className="p-2.5 rounded bg-zinc-50 border border-zinc-200">
-              <span className="font-bold text-zinc-900">src_ip_bytes</span>
-              <span className="text-zinc-500 text-[11px] block">Total IP-layer bytes from source (int)</span>
+            <div className="p-3 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+              <span className="font-bold text-zinc-900 block font-mono">src_ip_bytes</span>
+              <span className="text-zinc-600 text-xs">Total IP-layer bytes sent by origin host (int)</span>
             </div>
-            <div className="p-2.5 rounded bg-zinc-50 border border-zinc-200">
-              <span className="font-bold text-zinc-900">dst_ip_bytes</span>
-              <span className="text-zinc-500 text-[11px] block">Total IP-layer bytes from destination (int)</span>
+            <div className="p-3 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+              <span className="font-bold text-zinc-900 block font-mono">dst_ip_bytes</span>
+              <span className="text-zinc-600 text-xs">Total IP-layer bytes sent by destination host (int)</span>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-zinc-200 bg-white">
+        <Card className="border-zinc-200/90 bg-white shadow-xs">
           <CardHeader className="pb-3 border-b border-zinc-100">
-            <CardTitle className="text-sm font-bold font-mono">
-              [ STREAM INGESTION INVARIANTS ]
-            </CardTitle>
-            <CardDescription className="font-mono text-[11px]">
-              Guarantees enforced by the ingestion pipeline before inference.
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-zinc-600" />
+              <CardTitle className="text-base font-bold text-zinc-950">
+                Stream Ingestion Guarantees
+              </CardTitle>
+            </div>
+            <CardDescription className="text-xs text-zinc-500">
+              Invariants enforced by the ingestion pipeline prior to inference dispatch
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-4 font-mono text-xs space-y-3">
-            <div className="p-3 rounded-lg border border-zinc-200 bg-zinc-50 space-y-1">
-              <span className="font-bold text-zinc-950">Idempotent Batch Receipts</span>
-              <p className="text-[11px] text-zinc-600">
-                Incoming batches receive a unique batch_id receipt. Duplicate batches are acknowledged idempotently without double-counting telemetry events.
+          <CardContent className="pt-4 text-xs space-y-3">
+            <div className="p-3.5 rounded-lg border border-zinc-200/80 bg-zinc-50/60 space-y-1">
+              <span className="font-bold text-zinc-950 text-sm block">Idempotent Batch Receipts</span>
+              <p className="text-xs text-zinc-600 leading-relaxed">
+                Incoming batches receive a unique batch identifier receipt. Duplicate batches are acknowledged idempotently without double-counting telemetry events.
               </p>
             </div>
 
-            <div className="p-3 rounded-lg border border-zinc-200 bg-zinc-50 space-y-1">
-              <span className="font-bold text-zinc-950">Schema Validation &amp; Quality Filter</span>
-              <p className="text-[11px] text-zinc-600">
+            <div className="p-3.5 rounded-lg border border-zinc-200/80 bg-zinc-50/60 space-y-1">
+              <span className="font-bold text-zinc-950 text-sm block">Schema Validation &amp; Quality Filter</span>
+              <p className="text-xs text-zinc-600 leading-relaxed">
                 Malformed flows or missing numerical features are rejected before entering the sliding evaluation window to preserve data quality metric Q.
               </p>
             </div>
 
-            <div className="p-3 rounded-lg border border-zinc-200 bg-zinc-50 space-y-1">
-              <span className="font-bold text-zinc-950">Inference Queue Decoupling</span>
-              <p className="text-[11px] text-zinc-600">
-                Batch ingestion returns HTTP 202 Accepted within milliseconds. An async worker routes events through the active serving slot and publishes alert records.
+            <div className="p-3.5 rounded-lg border border-zinc-200/80 bg-zinc-50/60 space-y-1">
+              <span className="font-bold text-zinc-950 text-sm block">Inference Queue Decoupling</span>
+              <p className="text-xs text-zinc-600 leading-relaxed">
+                Network packet ingestion is fully decoupled from model evaluation via persistent buffer queues to prevent backpressure drops.
               </p>
             </div>
           </CardContent>
