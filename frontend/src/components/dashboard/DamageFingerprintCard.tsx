@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { DamageFingerprint, RepairAction } from "@/types/contracts";
@@ -61,132 +60,144 @@ export function DamageFingerprintCard({
   const actionDetails = getActionDetails(chosenAction);
 
   return (
-    <Card className="border-zinc-200 bg-white">
-      <CardHeader className="pb-3 border-b border-zinc-100">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-800 font-semibold">
-                DARI
-              </span>
-              <CardTitle className="text-sm font-bold font-mono">
-                7-Dimensional Damage Fingerprint
-              </CardTitle>
-            </div>
-            <CardDescription className="mt-1 font-mono text-[11px]">
-              Multi-dimensional damage assessment: Drift alone (D_X) does not trigger retraining.
-            </CardDescription>
-          </div>
-          <Badge variant={actionDetails.variant} className="font-mono text-xs px-2.5 py-1 self-start sm:self-auto">
+    <div className="space-y-4">
+      {/* Section Separator Header */}
+      <div className="flex flex-col sm:flex-row sm:items-baseline justify-between border-b border-zinc-900 pb-2.5 gap-2">
+        <div className="flex items-baseline gap-3">
+          <span className="font-mono text-xs font-bold uppercase tracking-widest text-zinc-950">
+            {"// 02"}
+          </span>
+          <h2 className="text-sm font-bold font-mono tracking-wider text-zinc-950 uppercase">
+            Damage Fingerprint &amp; Repair Assessment
+          </h2>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-[11px] text-zinc-500 hidden sm:inline">
+            7-DIMENSIONAL COVARIATE &amp; REPAIR VECTOR
+          </span>
+          <Badge
+            variant={actionDetails.variant}
+            className="font-mono text-xs px-2 py-0.5 rounded-none uppercase font-semibold"
+          >
             {actionDetails.badge}
           </Badge>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="pt-4">
-        {/* Policy Invariant Explanation Banner */}
-        <div className="p-3 rounded-lg bg-zinc-50 border border-zinc-200 text-xs mb-4 font-mono">
-          <span className="font-semibold text-zinc-900">[ DECISION REASON ]: </span>
-          <span className="text-zinc-600">{actionDetails.explanation}</span>
-        </div>
+      {/* Decision Reason Callout (Borderless, clean rule) */}
+      <div className="border-l-2 border-zinc-950 pl-4 py-1 font-mono text-xs text-zinc-700 bg-zinc-50/50">
+        <span className="font-bold text-zinc-950 uppercase">[ DECISION REASON ]: </span>
+        <span>{actionDetails.explanation}</span>
+      </div>
 
-        {/* 7-Dimensional Metrics Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {/* 1. D_X */}
-          <div className="p-3 rounded-lg border border-zinc-200 bg-white shadow-2xs">
-            <div className="flex items-center justify-between text-zinc-600 mb-1">
-              <span className="text-[11px] font-mono font-medium">Drift (D_X)</span>
-              <span className="text-[10px] font-mono text-zinc-600">covariate</span>
+      {/* 6 Dimensions in Open Grid with Hairline Dividers */}
+      <div className="border-y border-zinc-200 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 bg-white">
+        {/* 1. D_X */}
+        <div className="p-4 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-zinc-500 mb-1 font-mono">
+              <span className="text-[11px] font-semibold text-zinc-900 uppercase">Drift (D_X)</span>
+              <span className="text-[10px] text-zinc-400">covariate</span>
             </div>
-            <div className="text-lg font-bold font-mono text-zinc-950">
+            <div className="text-2xl font-bold font-mono text-zinc-950">
               {(fp.D_X * 100).toFixed(1)}%
             </div>
-            <Progress
-              value={fp.D_X * 100}
-              className="h-1.5 mt-2 bg-zinc-100"
-              indicatorClassName={fp.D_X > 0.15 ? "bg-amber-600" : "bg-zinc-900"}
-            />
           </div>
+          <Progress
+            value={fp.D_X * 100}
+            className="h-1 mt-4 rounded-none bg-zinc-100"
+            indicatorClassName={fp.D_X > 0.15 ? "bg-amber-600" : "bg-zinc-950"}
+          />
+        </div>
 
-          {/* 2. D_Y */}
-          <div className="p-3 rounded-lg border border-zinc-200 bg-white shadow-2xs">
-            <div className="flex items-center justify-between text-zinc-600 mb-1">
-              <span className="text-[11px] font-mono font-medium">Damage (D_Y)</span>
-              <span className="text-[10px] font-mono text-zinc-600">recall drop</span>
+        {/* 2. D_Y */}
+        <div className="p-4 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-zinc-500 mb-1 font-mono">
+              <span className="text-[11px] font-semibold text-zinc-900 uppercase">Damage (D_Y)</span>
+              <span className="text-[10px] text-zinc-400">recall drop</span>
             </div>
-            <div className="text-lg font-bold font-mono text-zinc-950">
+            <div className="text-2xl font-bold font-mono text-zinc-950">
               {fp.D_Y !== undefined ? `${(fp.D_Y * 100).toFixed(1)}%` : "0.0%"}
             </div>
-            <Progress
-              value={(fp.D_Y || 0) * 100}
-              className="h-1.5 mt-2 bg-zinc-100"
-              indicatorClassName={(fp.D_Y || 0) > 0.05 ? "bg-red-600" : "bg-zinc-900"}
-            />
           </div>
+          <Progress
+            value={(fp.D_Y || 0) * 100}
+            className="h-1 mt-4 rounded-none bg-zinc-100"
+            indicatorClassName={(fp.D_Y || 0) > 0.05 ? "bg-red-600" : "bg-zinc-950"}
+          />
+        </div>
 
-          {/* 3. D_B */}
-          <div className="p-3 rounded-lg border border-zinc-200 bg-white shadow-2xs">
-            <div className="flex items-center justify-between text-zinc-600 mb-1">
-              <span className="text-[11px] font-mono font-medium">Boundary (D_B)</span>
-              <span className="text-[10px] font-mono text-zinc-600">uncertainty</span>
+        {/* 3. D_B */}
+        <div className="p-4 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-zinc-500 mb-1 font-mono">
+              <span className="text-[11px] font-semibold text-zinc-900 uppercase">Boundary (D_B)</span>
+              <span className="text-[10px] text-zinc-400">uncertainty</span>
             </div>
-            <div className="text-lg font-bold font-mono text-zinc-950">
+            <div className="text-2xl font-bold font-mono text-zinc-950">
               {(fp.D_B * 100).toFixed(1)}%
             </div>
-            <Progress
-              value={fp.D_B * 100}
-              className="h-1.5 mt-2 bg-zinc-100"
-              indicatorClassName={fp.D_B > 0.1 ? "bg-blue-600" : "bg-zinc-900"}
-            />
           </div>
+          <Progress
+            value={fp.D_B * 100}
+            className="h-1 mt-4 rounded-none bg-zinc-100"
+            indicatorClassName={fp.D_B > 0.1 ? "bg-blue-600" : "bg-zinc-950"}
+          />
+        </div>
 
-          {/* 4. Q */}
-          <div className="p-3 rounded-lg border border-zinc-200 bg-white shadow-2xs">
-            <div className="flex items-center justify-between text-zinc-600 mb-1">
-              <span className="text-[11px] font-mono font-medium">Quality (Q)</span>
-              <span className="text-[10px] font-mono text-zinc-600">schema valid</span>
+        {/* 4. Q */}
+        <div className="p-4 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-zinc-500 mb-1 font-mono">
+              <span className="text-[11px] font-semibold text-zinc-900 uppercase">Quality (Q)</span>
+              <span className="text-[10px] text-zinc-400">schema valid</span>
             </div>
-            <div className="text-lg font-bold font-mono text-zinc-950">
+            <div className="text-2xl font-bold font-mono text-zinc-950">
               {(fp.Q * 100).toFixed(1)}%
             </div>
-            <Progress
-              value={fp.Q * 100}
-              className="h-1.5 mt-2 bg-zinc-100"
-              indicatorClassName="bg-emerald-600"
-            />
           </div>
+          <Progress
+            value={fp.Q * 100}
+            className="h-1 mt-4 rounded-none bg-zinc-100"
+            indicatorClassName="bg-emerald-600"
+          />
+        </div>
 
-          {/* 5. L */}
-          <div className="p-3 rounded-lg border border-zinc-200 bg-white shadow-2xs">
-            <div className="flex items-center justify-between text-zinc-600 mb-1">
-              <span className="text-[11px] font-mono font-medium">Labels (L)</span>
-              <span className="text-[10px] font-mono text-zinc-600">freshness</span>
+        {/* 5. L */}
+        <div className="p-4 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-zinc-500 mb-1 font-mono">
+              <span className="text-[11px] font-semibold text-zinc-900 uppercase">Labels (L)</span>
+              <span className="text-[10px] text-zinc-400">freshness</span>
             </div>
-            <div className="text-lg font-bold font-mono text-zinc-950">
+            <div className="text-2xl font-bold font-mono text-zinc-950">
               {(fp.L * 100).toFixed(1)}%
             </div>
-            <Progress
-              value={fp.L * 100}
-              className="h-1.5 mt-2 bg-zinc-100"
-              indicatorClassName="bg-emerald-600"
-            />
           </div>
+          <Progress
+            value={fp.L * 100}
+            className="h-1 mt-4 rounded-none bg-zinc-100"
+            indicatorClassName="bg-emerald-600"
+          />
+        </div>
 
-          {/* 6. S & R */}
-          <div className="p-3 rounded-lg border border-zinc-200 bg-white shadow-2xs">
-            <div className="flex items-center justify-between text-zinc-600 mb-1">
-              <span className="text-[11px] font-mono font-medium">Samples (S)</span>
-              <span className="text-[10px] font-mono text-zinc-600">R={fp.R}</span>
+        {/* 6. S & R */}
+        <div className="p-4 flex flex-col justify-between font-mono">
+          <div>
+            <div className="flex items-center justify-between text-zinc-500 mb-1">
+              <span className="text-[11px] font-semibold text-zinc-900 uppercase">Samples (S)</span>
+              <span className="text-[10px] text-zinc-400">R={fp.R}</span>
             </div>
-            <div className="text-lg font-bold font-mono text-zinc-950">
+            <div className="text-2xl font-bold text-zinc-950">
               {fp.S.toLocaleString()}
             </div>
-            <div className="text-[10px] text-zinc-600 font-mono mt-2">
-              Persistence R = {fp.R} windows
-            </div>
+          </div>
+          <div className="text-[10px] text-zinc-500 mt-4 uppercase">
+            Persistence: {fp.R} windows
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
