@@ -71,3 +71,9 @@ secrets/
 *~
 .DS_Store
 Thumbs.db
+
+# Logs & Process IDs
+.logs/
+.pids/
+*.log
+*.pid
