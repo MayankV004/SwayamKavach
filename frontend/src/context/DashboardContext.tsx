@@ -283,6 +283,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     try {
       const data = await runDriftScenario(scenario);
       setScenarioResult(data);
+      if (data?.fingerprint) {
+        setLifecycle((prev) => ({
+          ...prev,
+          last_fingerprint: data.fingerprint,
+          chosen_action: data.chosen_action,
+        }));
+      }
       await loadData();
     } catch (e: unknown) {
       console.error("Scenario execution error:", e);

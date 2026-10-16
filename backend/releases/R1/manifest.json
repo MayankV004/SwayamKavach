@@ -217,11 +217,11 @@
   },
   "packaged_at": "2026-10-14T20:15:43.287340+00:00",
   "mlflow": {
-    "tracking_uri": "sqlite:////tmp/pytest-of-streamliner/pytest-1/test_mlflow_model_registration0/test_mlflow.db",
+    "tracking_uri": "sqlite:////tmp/pytest-of-streamliner/pytest-3/test_mlflow_model_registration0/test_mlflow.db",
     "experiment_id": "1",
-    "run_id": "b2272264685c4f16bf8a669a5cb57f1a",
+    "run_id": "6303a83e7a654548b85903438552eb17",
     "registered_model_name": "swayamkavach_ids",
     "registered_model_version": 1,
-    "git_commit_sha": "7af81c3f06c2999c2383e7b43130cc4eedfe82b9"
+    "git_commit_sha": "3169c2c4c52e1b1f1fbde6628dd1c87706bd3144"
   }
 }

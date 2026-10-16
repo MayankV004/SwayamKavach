@@ -97,8 +97,8 @@ export function DamageFingerprintCard({
         </div>
       </div>
 
-      {/* 6 Dimensions Grid with Big Numbers */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+      {/* 7 Dimensions Grid with Big Numbers */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {/* 1. D_X */}
         <div className="rounded-lg border border-zinc-200/70 bg-zinc-50/50 p-4 flex flex-col justify-between hover:bg-zinc-50 transition-colors">
           <div>
@@ -106,7 +106,7 @@ export function DamageFingerprintCard({
               <span className="text-xs font-semibold text-zinc-900">Drift (D_X)</span>
               <span className="text-[10px] text-zinc-400 font-medium">covariate</span>
             </div>
-            <div className="text-3xl lg:text-4xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
+            <div className="text-3xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
               {(fp.D_X * 100).toFixed(1)}%
             </div>
           </div>
@@ -127,7 +127,7 @@ export function DamageFingerprintCard({
               <span className="text-xs font-semibold text-zinc-900">Damage (D_Y)</span>
               <span className="text-[10px] text-zinc-400 font-medium">recall drop</span>
             </div>
-            <div className="text-3xl lg:text-4xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
+            <div className="text-3xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
               {fp.D_Y !== undefined ? `${(fp.D_Y * 100).toFixed(1)}%` : "0.0%"}
             </div>
           </div>
@@ -137,7 +137,7 @@ export function DamageFingerprintCard({
               className="h-1.5 bg-zinc-200/80 rounded-full"
               indicatorClassName={(fp.D_Y || 0) > 0.05 ? "bg-red-600" : "bg-zinc-950"}
             />
-            <span className="text-[10px] text-zinc-400 mt-1.5 block">Accuracy degradation</span>
+            <span className="text-[10px] text-zinc-400 mt-1.5 block">Accuracy drop</span>
           </div>
         </div>
 
@@ -148,7 +148,7 @@ export function DamageFingerprintCard({
               <span className="text-xs font-semibold text-zinc-900">Boundary (D_B)</span>
               <span className="text-[10px] text-zinc-400 font-medium">uncertainty</span>
             </div>
-            <div className="text-3xl lg:text-4xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
+            <div className="text-3xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
               {(fp.D_B * 100).toFixed(1)}%
             </div>
           </div>
@@ -169,7 +169,7 @@ export function DamageFingerprintCard({
               <span className="text-xs font-semibold text-zinc-900">Quality (Q)</span>
               <span className="text-[10px] text-zinc-400 font-medium">schema valid</span>
             </div>
-            <div className="text-3xl lg:text-4xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
+            <div className="text-3xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
               {(fp.Q * 100).toFixed(1)}%
             </div>
           </div>
@@ -190,7 +190,7 @@ export function DamageFingerprintCard({
               <span className="text-xs font-semibold text-zinc-900">Labels (L)</span>
               <span className="text-[10px] text-zinc-400 font-medium">freshness</span>
             </div>
-            <div className="text-3xl lg:text-4xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
+            <div className="text-3xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
               {(fp.L * 100).toFixed(1)}%
             </div>
           </div>
@@ -204,22 +204,45 @@ export function DamageFingerprintCard({
           </div>
         </div>
 
-        {/* 6. S & R */}
+        {/* 6. S */}
         <div className="rounded-lg border border-zinc-200/70 bg-zinc-50/50 p-4 flex flex-col justify-between hover:bg-zinc-50 transition-colors">
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs font-semibold text-zinc-900">Samples (S)</span>
-              <span className="text-[10px] text-zinc-400 font-medium">window</span>
+              <span className="text-[10px] text-zinc-400 font-medium">volume</span>
             </div>
-            <div className="text-3xl lg:text-4xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
+            <div className="text-3xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
               {fp.S.toLocaleString()}
             </div>
           </div>
-          <div className="mt-4 pt-1">
-            <div className="text-xs font-medium text-zinc-600">
-              Persistence: <span className="font-bold text-zinc-900">{fp.R} windows</span>
+          <div className="mt-4">
+            <Progress
+              value={Math.min(100, (fp.S / 2000) * 100)}
+              className="h-1.5 bg-zinc-200/80 rounded-full"
+              indicatorClassName="bg-zinc-950"
+            />
+            <span className="text-[10px] text-zinc-400 mt-1.5 block">Window quota</span>
+          </div>
+        </div>
+
+        {/* 7. R */}
+        <div className="rounded-lg border border-zinc-200/70 bg-zinc-50/50 p-4 flex flex-col justify-between hover:bg-zinc-50 transition-colors">
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-semibold text-zinc-900">Persistence (R)</span>
+              <span className="text-[10px] text-zinc-400 font-medium">temporal</span>
             </div>
-            <span className="text-[10px] text-zinc-400 block mt-0.5">Consecutive breaches</span>
+            <div className="text-3xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
+              {fp.R}
+            </div>
+          </div>
+          <div className="mt-4">
+            <Progress
+              value={Math.min(100, (fp.R / 3) * 100)}
+              className="h-1.5 bg-zinc-200/80 rounded-full"
+              indicatorClassName={fp.R >= 2 ? "bg-amber-600" : "bg-emerald-600"}
+            />
+            <span className="text-[10px] text-zinc-400 mt-1.5 block">Consecutive windows</span>
           </div>
         </div>
       </div>

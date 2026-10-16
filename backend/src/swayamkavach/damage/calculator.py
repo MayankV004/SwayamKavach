@@ -17,6 +17,8 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from scipy.stats import ks_2samp
@@ -36,6 +38,24 @@ DEFAULT_NUMERICAL_FEATURES = [
     "missed_bytes",
 ]
 
+_DEFAULT_REFERENCE_DF: pd.DataFrame | None = None
+
+
+def get_default_reference_df() -> pd.DataFrame | None:
+    """Lazily load a sample of processed validation baseline features for distribution drift."""
+    global _DEFAULT_REFERENCE_DF
+    if _DEFAULT_REFERENCE_DF is not None:
+        return _DEFAULT_REFERENCE_DF
+    try:
+        backend_dir = Path(__file__).resolve().parent.parent.parent.parent
+        val_path = backend_dir / "data" / "processed" / "val.csv.gz"
+        if val_path.exists():
+            _DEFAULT_REFERENCE_DF = pd.read_csv(val_path, nrows=1000)
+            return _DEFAULT_REFERENCE_DF
+    except Exception as exc:
+        logger.warning("Could not load default reference dataset: %s", exc)
+    return None
+
 
 class DamageCalculator:
     """Calculates multidimensional drift, uncertainty, and performance degradation."""
@@ -49,7 +69,7 @@ class DamageCalculator:
         baseline_recall: float = 0.998,
         baseline_fpr: float = 0.008,
     ):
-        self.reference_df = reference_df
+        self.reference_df = reference_df if reference_df is not None else get_default_reference_df()
         self.feature_columns = list(feature_columns or DEFAULT_NUMERICAL_FEATURES)
         self.decision_threshold = decision_threshold
         self.margin_band = margin_band
@@ -116,26 +136,44 @@ class DamageCalculator:
 
     def compute_performance_damage(
         self,
-        y_true: Sequence[int] | np.ndarray | None,
+        y_true: Sequence[int | None] | np.ndarray | None,
         scores_or_preds: Sequence[float | int] | np.ndarray | None,
         threshold: float | None = None,
     ) -> float | None:
         """Compute D_Y: Attack recall drop & False Positive Rate inflation on available labels.
 
         Returns None if labels are absent (DARI invariant: unlabelled windows have D_Y = None).
+        Safely aligns partial label arrays with predicted scores without IndexError.
         """
         if y_true is None or len(y_true) == 0 or scores_or_preds is None or len(scores_or_preds) == 0:
             return None
 
-        y_true_arr = np.asarray(y_true, dtype=int)
+        # Filter indices where y_true is valid and not None / NaN
+        valid_indices = [i for i, y in enumerate(y_true) if y is not None and not pd.isna(y)]
+        if not valid_indices:
+            return None
+
         scores_arr = np.asarray(scores_or_preds, dtype=float)
+
+        # If y_true matches scores length, extract exactly aligned valid pairs
+        if len(y_true) == len(scores_arr):
+            y_true_arr = np.array([y_true[i] for i in valid_indices], dtype=int)
+            scores_eval = scores_arr[valid_indices]
+        else:
+            # If lengths differ (e.g. pre-filtered label subset), align up to available length
+            eval_len = min(len(y_true), len(scores_arr))
+            y_true_arr = np.asarray(y_true[:eval_len], dtype=int)
+            scores_eval = scores_arr[:eval_len]
+
+        if len(y_true_arr) == 0 or len(scores_eval) == 0:
+            return None
 
         theta = threshold if threshold is not None else self.decision_threshold
         # If float scores, threshold them into binary predictions; if already 0/1 integers, keep
-        if np.any((scores_arr > 0.0) & (scores_arr < 1.0)):
-            y_pred = (scores_arr >= theta).astype(int)
+        if np.any((scores_eval > 0.0) & (scores_eval < 1.0)):
+            y_pred = (scores_eval >= theta).astype(int)
         else:
-            y_pred = scores_arr.astype(int)
+            y_pred = scores_eval.astype(int)
 
         # Compute Attack Recall (Class == 1)
         attack_mask = (y_true_arr == 1)

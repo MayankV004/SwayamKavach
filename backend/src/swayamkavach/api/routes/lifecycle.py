@@ -19,8 +19,15 @@ router = APIRouter(prefix="/lifecycle", tags=["Lifecycle"])
 
 
 @router.get("", response_model=LifecycleState, status_code=status.HTTP_200_OK)
-def get_lifecycle_state(db: Session = Depends(get_db)):
-    """Retrieve the authoritative deployment and DARI self-healing lifecycle state."""
+def get_lifecycle_state(
+    mode: str = "auto",
+    db: Session = Depends(get_db),
+):
+    """Retrieve the authoritative deployment and DARI self-healing lifecycle state.
+
+    Supports dynamic sliding-window assessment during active streaming feeds
+    and durable record retrieval for offline/replay scenario benchmarks.
+    """
     # Check for release R1 manifest to verify active champion
     backend_dir = Path(__file__).resolve().parent.parent.parent.parent
     r1_manifest = backend_dir / "releases" / "R1" / "manifest.json"
@@ -34,25 +41,58 @@ def get_lifecycle_state(db: Session = Depends(get_db)):
         except Exception:
             champion = "R1"
 
-    # 1. Check if an authoritative lifecycle record exists in DB
+    # Check if live feeds are currently active
+    stream_active = False
+    try:
+        from swayamkavach.replay.feed_manager import FeedManager
+        stream_active = FeedManager.get_instance().get_status().get("any_active", False)
+    except Exception:
+        pass
+
     record = db.query(LifecycleStateRecordDB).first()
-    if record:
-        fingerprint = None
+
+    # Determine whether to compute live sliding window or use recorded fingerprint
+    evaluate_live = (mode == "live") or (mode == "auto" and stream_active)
+
+    fingerprint: DamageFingerprint | None = None
+    action: RepairAction = RepairAction.A0
+
+    if evaluate_live:
+        window = WindowSelector().select_latest_window(db, window_size=500)
+        if window is not None and len(window.features_df) > 0:
+            calc = DamageCalculator()
+            fingerprint = calc.compute_fingerprint(
+                current_df=window.features_df,
+                scores=window.scores,
+                y_true=window.y_true,
+                label_reliability=window.label_reliability,
+            )
+            try:
+                from swayamkavach.dari.selector import DARISolver
+                decision = DARISolver().solve(fingerprint)
+                action = decision.chosen_action
+            except Exception as e:
+                logger.warning("DARI solver evaluation failed on live window: %s", e)
+                action = RepairAction.A0
+
+    # If not evaluated live or window had no events, fall back to record or nominal
+    if fingerprint is None and record is not None:
         if record.last_fingerprint:
             fingerprint = DamageFingerprint(**record.last_fingerprint)
-        else:
-            # Dynamically compute from latest window
-            window = WindowSelector().select_latest_window(db, window_size=500)
-            if window is not None and len(window.features_df) > 0:
-                calc = DamageCalculator()
-                fingerprint = calc.compute_fingerprint(
-                    current_df=window.features_df,
-                    scores=window.scores,
-                    y_true=window.y_true,
-                    label_reliability=window.label_reliability,
-                )
+            action = RepairAction(record.last_action) if record.last_action in RepairAction.__members__ else RepairAction.A0
 
-        if fingerprint is None:
+    if fingerprint is None:
+        # Fallback to nominal baseline
+        window = WindowSelector().select_latest_window(db, window_size=500)
+        if window is not None and len(window.features_df) > 0:
+            calc = DamageCalculator()
+            fingerprint = calc.compute_fingerprint(
+                current_df=window.features_df,
+                scores=window.scores,
+                y_true=window.y_true,
+                label_reliability=window.label_reliability,
+            )
+        else:
             fingerprint = DamageFingerprint(
                 D_X=0.012,
                 D_Y=0.008,
@@ -63,8 +103,7 @@ def get_lifecycle_state(db: Session = Depends(get_db)):
                 R=1,
             )
 
-        action = RepairAction(record.last_action) if record.last_action in RepairAction.__members__ else RepairAction.A0
-
+    if record:
         return LifecycleState(
             champion_release=record.champion_release or champion,
             active_slot=record.active_slot or "A",
@@ -73,28 +112,7 @@ def get_lifecycle_state(db: Session = Depends(get_db)):
             canary_weight=record.canary_weight,
             last_fingerprint=fingerprint,
             chosen_action=action,
-            updated_at=record.updated_at.replace(tzinfo=UTC) if record.updated_at.tzinfo is None else record.updated_at,
-        )
-
-    # 2. If no DB record exists yet, attempt dynamic calculation or fallback
-    window = WindowSelector().select_latest_window(db, window_size=500)
-    if window is not None and len(window.features_df) > 0:
-        calc = DamageCalculator()
-        fingerprint = calc.compute_fingerprint(
-            current_df=window.features_df,
-            scores=window.scores,
-            y_true=window.y_true,
-            label_reliability=window.label_reliability,
-        )
-    else:
-        fingerprint = DamageFingerprint(
-            D_X=0.012,
-            D_Y=0.008,
-            D_B=0.045,
-            Q=0.999,
-            L=0.985,
-            S=2000,
-            R=1,
+            updated_at=datetime.now(UTC) if evaluate_live else (record.updated_at.replace(tzinfo=UTC) if record.updated_at.tzinfo is None else record.updated_at),
         )
 
     return LifecycleState(
@@ -104,6 +122,6 @@ def get_lifecycle_state(db: Session = Depends(get_db)):
         candidate_slot=None,
         canary_weight=0.0,
         last_fingerprint=fingerprint,
-        chosen_action=RepairAction.A0,
+        chosen_action=action,
         updated_at=datetime.now(UTC),
     )

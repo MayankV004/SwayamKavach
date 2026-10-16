@@ -9,6 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from datetime import UTC, datetime
+from swayamkavach.db.models import LifecycleStateRecordDB
 from swayamkavach.db.session import get_db
 from swayamkavach.experiments.benchmark import BaselineBenchmarkHarness
 from swayamkavach.experiments.scenarios import ReplayScenarioRunner, ScenarioType
@@ -55,6 +57,21 @@ def run_scenario(
                 result = runner.run_unlabelled_stream_scenario()
             case _:
                 raise HTTPException(status_code=400, detail=f"Unsupported scenario: {request.scenario}")
+
+        # Update lifecycle state in DB so all dashboard components see the new fingerprint and action
+        record = db.query(LifecycleStateRecordDB).first()
+        if not record:
+            record = LifecycleStateRecordDB(
+                champion_release="R1",
+                active_slot="A",
+                canary_weight=0.0,
+            )
+            db.add(record)
+
+        record.last_fingerprint = result.fingerprint.model_dump()
+        record.last_action = result.chosen_action.value
+        record.updated_at = datetime.now(UTC)
+        db.commit()
 
         logger.info("Executed scenario %s -> Action %s", result.scenario.value, result.chosen_action.value)
         return result.to_dict()

@@ -28,8 +28,8 @@ export default function ScenariosPage() {
           </h3>
         </div>
         <DamageFingerprintCard
-          fingerprint={lifecycle.last_fingerprint}
-          chosenAction={lifecycle.chosen_action}
+          fingerprint={scenarioResult?.fingerprint || lifecycle.last_fingerprint}
+          chosenAction={scenarioResult?.chosen_action || lifecycle.chosen_action}
         />
       </div>
 

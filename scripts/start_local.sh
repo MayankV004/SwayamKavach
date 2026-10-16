@@ -40,7 +40,7 @@ export PYTHONPATH="${REPO_ROOT}/backend/src:${REPO_ROOT}/backend:${PYTHONPATH:-}
 VENV_BIN="${REPO_ROOT}/backend/.venv/bin"
 
 echo -e "${BOLD}[1/4] Starting API Control Plane on http://localhost:8000...${RESET}"
-nohup "${VENV_BIN}/uvicorn" swayamkavach.api.main:app --host 0.0.0.0 --port 8000 > "${LOG_DIR}/api.log" 2>&1 &
+nohup "${VENV_BIN}/uvicorn" swayamkavach.api.main:app --host 0.0.0.0 --port 8000 --reload > "${LOG_DIR}/api.log" 2>&1 &
 echo $! > "${PID_DIR}/api.pid"
 disown
 
