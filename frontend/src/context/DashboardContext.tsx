@@ -4,7 +4,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import {
   AlertRecord,
   BenchmarkReport,
+  DamageFingerprint,
   LifecycleState,
+  RepairAction,
   ScenarioRunResult,
   StreamStatus,
 } from "@/types/contracts";
@@ -12,6 +14,7 @@ import {
   fetchHealth,
   fetchAlerts,
   fetchLifecycleState,
+  resetLifecycleState,
   fetchBenchmarkReport,
   runDriftScenario,
   advanceCanaryRollout,
@@ -41,6 +44,8 @@ interface DashboardContextType {
   benchmarkReport: BenchmarkReport | null;
   loadingBenchmark: boolean;
   lifecycle: LifecycleState;
+  effectiveFingerprint: DamageFingerprint;
+  effectiveAction: RepairAction;
   streamStatus: StreamStatus | null;
   togglingStream: boolean;
   streamFeedback: string | null;
@@ -50,6 +55,8 @@ interface DashboardContextType {
   advanceCanary: () => Promise<void>;
   rollbackCanary: () => Promise<void>;
   executeScenario: (scenario: string) => Promise<void>;
+  clearScenario: () => void;
+  resetLifecycle: () => Promise<void>;
   toggleReplayStream: () => Promise<void>;
   toggleSnifferStream: () => Promise<void>;
   startBothStreams: () => Promise<void>;
@@ -376,6 +383,43 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const DEFAULT_NOMINAL_FP: DamageFingerprint = {
+    D_X: 0.012,
+    D_Y: 0.008,
+    D_B: 0.045,
+    Q: 0.999,
+    L: 0.985,
+    S: 2000,
+    R: 1,
+  };
+
+  const effectiveFingerprint: DamageFingerprint =
+    scenarioResult?.fingerprint || lifecycle.last_fingerprint || DEFAULT_NOMINAL_FP;
+  const effectiveAction: RepairAction =
+    scenarioResult?.chosen_action || lifecycle.chosen_action || "A0";
+
+  const clearScenario = () => {
+    setScenarioResult(null);
+    void loadData();
+  };
+
+  const resetLifecycle = async () => {
+    setActingCanary(true);
+    setCanaryActionStatus(null);
+    try {
+      const state = await resetLifecycleState();
+      setLifecycle(state);
+      setScenarioResult(null);
+      setCanaryActionStatus("Lifecycle reset to baseline: Champion R1 on Slot A, Canary 0%.");
+      await loadData();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setCanaryActionStatus(`Reset failed: ${msg}`);
+    } finally {
+      setActingCanary(false);
+    }
+  };
+
   return (
     <DashboardContext.Provider
       value={{
@@ -393,6 +437,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         benchmarkReport,
         loadingBenchmark,
         lifecycle,
+        effectiveFingerprint,
+        effectiveAction,
         streamStatus,
         togglingStream,
         streamFeedback,
@@ -402,6 +448,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         advanceCanary,
         rollbackCanary,
         executeScenario,
+        clearScenario,
+        resetLifecycle,
         toggleReplayStream,
         toggleSnifferStream,
         startBothStreams,

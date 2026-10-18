@@ -8,7 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Activity, ShieldCheck } from "lucide-react";
 
 export default function ScenariosPage() {
-  const { runningScenario, scenarioResult, executeScenario, lifecycle } = useDashboard();
+  const {
+    runningScenario,
+    scenarioResult,
+    executeScenario,
+    clearScenario,
+    effectiveFingerprint,
+    effectiveAction,
+  } = useDashboard();
 
   return (
     <div className="space-y-6">
@@ -17,6 +24,7 @@ export default function ScenariosPage() {
         runningScenario={runningScenario}
         scenarioResult={scenarioResult}
         onExecuteScenario={executeScenario}
+        onClearScenario={clearScenario}
       />
 
       {/* Resulting Damage Fingerprint */}
@@ -28,8 +36,8 @@ export default function ScenariosPage() {
           </h3>
         </div>
         <DamageFingerprintCard
-          fingerprint={scenarioResult?.fingerprint || lifecycle.last_fingerprint}
-          chosenAction={scenarioResult?.chosen_action || lifecycle.chosen_action}
+          fingerprint={effectiveFingerprint}
+          chosenAction={effectiveAction}
         />
       </div>
 

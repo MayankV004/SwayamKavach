@@ -16,6 +16,18 @@ export const BACKEND_ROOT_URL =
   process.env.NEXT_PUBLIC_BACKEND_ROOT || "http://localhost:8000";
 export const MLFLOW_URL =
   process.env.NEXT_PUBLIC_MLFLOW_URL || "http://localhost:5000";
+export const CONTROL_PLANE_API_KEY =
+  process.env.NEXT_PUBLIC_CONTROL_PLANE_API_KEY ||
+  "swayamkavach-control-plane-secret-key-v1";
+
+function getControlHeaders(
+  extraHeaders: Record<string, string> = {}
+): Record<string, string> {
+  return {
+    "X-API-Key": CONTROL_PLANE_API_KEY,
+    ...extraHeaders,
+  };
+}
 
 export async function fetchHealth(): Promise<{ status: string; service: string }> {
   try {
@@ -68,6 +80,18 @@ export async function fetchLifecycleState(): Promise<LifecycleState> {
   }
 }
 
+export async function resetLifecycleState(): Promise<LifecycleState> {
+  const res = await fetch(`${API_BASE_URL}/lifecycle/reset`, {
+    method: "POST",
+    headers: getControlHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Failed to reset lifecycle state" }));
+    throw new Error(err.detail || "Failed to reset lifecycle state");
+  }
+  return await res.json();
+}
+
 export async function fetchBenchmarkReport(
   n_windows: number = 10
 ): Promise<BenchmarkReport | null> {
@@ -102,6 +126,7 @@ export async function runDriftScenario(
 export async function advanceCanaryRollout(): Promise<LifecycleState> {
   const res = await fetch(`${API_BASE_URL}/deployment/canary/advance`, {
     method: "POST",
+    headers: getControlHeaders(),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: "Canary advance failed" }));
@@ -115,7 +140,7 @@ export async function rollbackCanaryRollout(
 ): Promise<{ status: string; champion_release: string }> {
   const res = await fetch(`${API_BASE_URL}/deployment/canary/rollback`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getControlHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ reason }),
   });
   if (!res.ok) {
@@ -147,38 +172,75 @@ export async function fetchStreamStatus(): Promise<import("@/types/contracts").S
 }
 
 export async function startReplayStream(): Promise<Record<string, unknown>> {
-  const res = await fetch(`${API_BASE_URL}/stream/replay/start`, { method: "POST" });
-  if (!res.ok) throw new Error("Failed to start replay stream");
+  const res = await fetch(`${API_BASE_URL}/stream/replay/start`, {
+    method: "POST",
+    headers: getControlHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Failed to start replay stream" }));
+    throw new Error(err.detail || "Failed to start replay stream");
+  }
   return await res.json();
 }
 
 export async function stopReplayStream(): Promise<Record<string, unknown>> {
-  const res = await fetch(`${API_BASE_URL}/stream/replay/stop`, { method: "POST" });
-  if (!res.ok) throw new Error("Failed to stop replay stream");
+  const res = await fetch(`${API_BASE_URL}/stream/replay/stop`, {
+    method: "POST",
+    headers: getControlHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Failed to stop replay stream" }));
+    throw new Error(err.detail || "Failed to stop replay stream");
+  }
   return await res.json();
 }
 
 export async function startSnifferStream(): Promise<Record<string, unknown>> {
-  const res = await fetch(`${API_BASE_URL}/stream/sniffer/start`, { method: "POST" });
-  if (!res.ok) throw new Error("Failed to start sniffer stream");
+  const res = await fetch(`${API_BASE_URL}/stream/sniffer/start`, {
+    method: "POST",
+    headers: getControlHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Failed to start sniffer stream" }));
+    throw new Error(err.detail || "Failed to start sniffer stream");
+  }
   return await res.json();
 }
 
 export async function stopSnifferStream(): Promise<Record<string, unknown>> {
-  const res = await fetch(`${API_BASE_URL}/stream/sniffer/stop`, { method: "POST" });
-  if (!res.ok) throw new Error("Failed to stop sniffer stream");
+  const res = await fetch(`${API_BASE_URL}/stream/sniffer/stop`, {
+    method: "POST",
+    headers: getControlHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Failed to stop sniffer stream" }));
+    throw new Error(err.detail || "Failed to stop sniffer stream");
+  }
   return await res.json();
 }
 
 export async function startAllStreams(): Promise<Record<string, unknown>> {
-  const res = await fetch(`${API_BASE_URL}/stream/all/start`, { method: "POST" });
-  if (!res.ok) throw new Error("Failed to start all streams");
+  const res = await fetch(`${API_BASE_URL}/stream/all/start`, {
+    method: "POST",
+    headers: getControlHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Failed to start all streams" }));
+    throw new Error(err.detail || "Failed to start all streams");
+  }
   return await res.json();
 }
 
 export async function stopAllStreams(): Promise<Record<string, unknown>> {
-  const res = await fetch(`${API_BASE_URL}/stream/all/stop`, { method: "POST" });
-  if (!res.ok) throw new Error("Failed to stop all streams");
+  const res = await fetch(`${API_BASE_URL}/stream/all/stop`, {
+    method: "POST",
+    headers: getControlHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Failed to stop all streams" }));
+    throw new Error(err.detail || "Failed to stop all streams");
+  }
   return await res.json();
 }
+
 

@@ -10,6 +10,7 @@ interface ScenarioInjectionCardProps {
   runningScenario: boolean;
   scenarioResult: ScenarioRunResult | null;
   onExecuteScenario: (scenario: string) => void;
+  onClearScenario?: () => void;
 }
 
 const SCENARIOS = [
@@ -61,6 +62,7 @@ export function ScenarioInjectionCard({
   runningScenario,
   scenarioResult,
   onExecuteScenario,
+  onClearScenario,
 }: ScenarioInjectionCardProps) {
   return (
     <Card className="border-zinc-200/90 bg-white shadow-xs">
@@ -122,9 +124,19 @@ export function ScenarioInjectionCard({
                   Simulation Result: {scenarioResult.scenario}
                 </span>
               </div>
-              <Badge variant="outline" className="border-emerald-500 text-emerald-400 bg-emerald-950/40 text-xs font-semibold px-2.5 py-0.5">
-                Action: {scenarioResult.chosen_action}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="border-emerald-500 text-emerald-400 bg-emerald-950/40 text-xs font-semibold px-2.5 py-0.5">
+                  Action: {scenarioResult.chosen_action}
+                </Badge>
+                {onClearScenario && (
+                  <button
+                    onClick={onClearScenario}
+                    className="text-zinc-400 hover:text-white text-[11px] px-2 py-0.5 rounded border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 transition-colors cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="text-zinc-300 text-xs leading-relaxed">

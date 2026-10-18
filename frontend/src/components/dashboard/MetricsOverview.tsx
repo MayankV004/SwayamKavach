@@ -7,9 +7,10 @@ import { AlertRecord, LifecycleState, RepairAction } from "@/types/contracts";
 interface MetricsOverviewProps {
   lifecycle: LifecycleState;
   alerts: AlertRecord[];
+  chosenAction?: RepairAction;
 }
 
-export function MetricsOverview({ lifecycle, alerts }: MetricsOverviewProps) {
+export function MetricsOverview({ lifecycle, alerts, chosenAction }: MetricsOverviewProps) {
   const criticalAlertsCount = alerts.filter(
     (a) => a.severity === "critical" || a.severity === "high"
   ).length;
@@ -43,7 +44,8 @@ export function MetricsOverview({ lifecycle, alerts }: MetricsOverviewProps) {
     }
   };
 
-  const actionInfo = getActionInfo(lifecycle.chosen_action);
+  const currentAction: RepairAction = chosenAction || lifecycle.chosen_action || "A0";
+  const actionInfo = getActionInfo(currentAction);
   const canaryPct = Math.round(lifecycle.canary_weight * 100);
   const championTrafficPct = 100 - canaryPct;
 
@@ -141,7 +143,7 @@ export function MetricsOverview({ lifecycle, alerts }: MetricsOverviewProps) {
 
           <div className="flex items-baseline gap-2.5 my-2">
             <span className="text-4xl lg:text-5xl font-extrabold tracking-tight text-zinc-950 tabular-nums">
-              {lifecycle.chosen_action || "A0"}
+              {currentAction}
             </span>
             <Badge
               variant={actionInfo.badgeVariant}
@@ -154,7 +156,7 @@ export function MetricsOverview({ lifecycle, alerts }: MetricsOverviewProps) {
 
         <div className="pt-3 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-600">
           <span className="truncate font-medium text-zinc-700">
-            {lifecycle.chosen_action === "A0" ? "Zero compute consumed" : "Intervention active"}
+            {currentAction === "A0" ? "Zero compute consumed" : "Intervention active"}
           </span>
           <span className="text-zinc-400">ladder</span>
         </div>

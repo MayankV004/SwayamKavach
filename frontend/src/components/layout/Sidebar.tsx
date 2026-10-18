@@ -34,7 +34,7 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { sidebarCollapsed, toggleSidebar, backendHealthy, lifecycle, alerts } = useDashboard();
+  const { sidebarCollapsed, toggleSidebar, backendHealthy, lifecycle, alerts, effectiveAction } = useDashboard();
 
   return (
     <aside
@@ -212,7 +212,7 @@ export function Sidebar() {
             <div className="flex items-center justify-between text-zinc-600">
               <span className="font-medium text-zinc-500">Active Policy</span>
               <span className="font-bold text-zinc-900">
-                {lifecycle.chosen_action || "A0"}
+                {effectiveAction || lifecycle.chosen_action || "A0"}
               </span>
             </div>
           </>

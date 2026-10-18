@@ -1,0 +1,227 @@
+{
+  "release_id": "R2",
+  "model_name": "swayamkavach_histgradientboosting_baseline",
+  "model_version": "r1-histgradientboosting-v1.0.0",
+  "champion_status": "CHAMPION",
+  "feature_schema": "ton-conn-11-v1",
+  "feature_columns": [
+    "duration",
+    "src_bytes",
+    "dst_bytes",
+    "src_ip_bytes",
+    "dst_ip_bytes",
+    "src_pkts",
+    "dst_pkts",
+    "missed_bytes",
+    "proto",
+    "service",
+    "conn_state"
+  ],
+  "categorical_columns": [
+    "proto",
+    "service",
+    "conn_state"
+  ],
+  "numerical_columns": [
+    "duration",
+    "src_bytes",
+    "dst_bytes",
+    "src_ip_bytes",
+    "dst_ip_bytes",
+    "src_pkts",
+    "dst_pkts",
+    "missed_bytes"
+  ],
+  "class_map": {
+    "0": "normal",
+    "1": "attack"
+  },
+  "decision_threshold": 0.42,
+  "bundle_file": "pipeline.joblib",
+  "bundle_sha256": "3639259c6fcc97ab90b13384fc9d44ce81cad8a34a0d9fcd3eaffab7fe1e6f39",
+  "split_manifest_path": "manifests/splits/split_manifest_v1.json",
+  "training_rows": 147730,
+  "estimator_class": "HistGradientBoostingClassifier",
+  "metrics": {
+    "validation": {
+      "threshold": 0.42,
+      "accuracy": 0.9962408390194591,
+      "precision": 0.9974338810479698,
+      "recall": 0.9976403378042722,
+      "f1": 0.9975370987437134,
+      "fpr": 0.008266666666666667,
+      "roc_auc": 0.999828644367169,
+      "pr_auc": 0.9999447848440602,
+      "tp": 24099,
+      "fp": 62,
+      "tn": 7438,
+      "fn": 57
+    },
+    "sealed_test": {
+      "threshold": 0.42,
+      "accuracy": 0.9966200208484696,
+      "precision": 0.9974764189971869,
+      "recall": 0.998095790040154,
+      "f1": 0.9977860084007532,
+      "fpr": 0.008133333333333333,
+      "roc_auc": 0.999847494860013,
+      "pr_auc": 0.9999503240219219,
+      "tp": 24111,
+      "fp": 61,
+      "tn": 7439,
+      "fn": 46
+    },
+    "sealed_test_per_attack_recall": {
+      "backdoor": 0.9996666666666667,
+      "ddos": 0.993,
+      "dos": 0.9976666666666667,
+      "injection": 0.999,
+      "mitm": 0.9363057324840764,
+      "normal": 0.9918666666666667,
+      "password": 0.9996666666666667,
+      "ransomware": 0.9996666666666667,
+      "scanning": 0.9996666666666667,
+      "xss": 0.9996666666666667
+    }
+  },
+  "model_comparison": {
+    "DecisionTree": {
+      "val_metrics_default_0_50": {
+        "threshold": 0.5,
+        "accuracy": 0.9945034116755117,
+        "precision": 0.9959057071960298,
+        "recall": 0.9968951813214109,
+        "f1": 0.9964001986097318,
+        "fpr": 0.0132,
+        "roc_auc": 0.9967229315008003,
+        "pr_auc": 0.9980083598159987,
+        "tp": 24081,
+        "fp": 99,
+        "tn": 7401,
+        "fn": 75
+      },
+      "calibrated_threshold": 0.4,
+      "val_metrics_calibrated": {
+        "threshold": 0.4,
+        "accuracy": 0.994598180439727,
+        "precision": 0.9958652057060161,
+        "recall": 0.9970607716509355,
+        "f1": 0.9964626300655758,
+        "fpr": 0.013333333333333334,
+        "roc_auc": 0.9967229315008003,
+        "pr_auc": 0.9980083598159987,
+        "tp": 24085,
+        "fp": 100,
+        "tn": 7400,
+        "fn": 71
+      },
+      "val_per_attack_recall": {
+        "backdoor": 1.0,
+        "ddos": 0.9883333333333333,
+        "dos": 0.9973333333333333,
+        "injection": 0.999,
+        "mitm": 0.9743589743589743,
+        "normal": 0.9866666666666667,
+        "password": 0.9996666666666667,
+        "ransomware": 0.9956666666666667,
+        "scanning": 0.9993333333333333,
+        "xss": 0.9983333333333333
+      }
+    },
+    "HistGradientBoosting": {
+      "val_metrics_default_0_50": {
+        "threshold": 0.5,
+        "accuracy": 0.995988122314885,
+        "precision": 0.9980516519504208,
+        "recall": 0.9966881934095049,
+        "f1": 0.9973694566996002,
+        "fpr": 0.006266666666666667,
+        "roc_auc": 0.999828644367169,
+        "pr_auc": 0.9999447848440602,
+        "tp": 24076,
+        "fp": 47,
+        "tn": 7453,
+        "fn": 80
+      },
+      "calibrated_threshold": 0.42,
+      "val_metrics_calibrated": {
+        "threshold": 0.42,
+        "accuracy": 0.9962408390194591,
+        "precision": 0.9974338810479698,
+        "recall": 0.9976403378042722,
+        "f1": 0.9975370987437134,
+        "fpr": 0.008266666666666667,
+        "roc_auc": 0.999828644367169,
+        "pr_auc": 0.9999447848440602,
+        "tp": 24099,
+        "fp": 62,
+        "tn": 7438,
+        "fn": 57
+      },
+      "val_per_attack_recall": {
+        "backdoor": 0.999,
+        "ddos": 0.991,
+        "dos": 0.9983333333333333,
+        "injection": 0.9986666666666667,
+        "mitm": 0.9294871794871795,
+        "normal": 0.9917333333333334,
+        "password": 0.9996666666666667,
+        "ransomware": 0.999,
+        "scanning": 0.9996666666666667,
+        "xss": 0.9993333333333333
+      }
+    },
+    "LightGBM": {
+      "val_metrics_default_0_50": {
+        "threshold": 0.5,
+        "accuracy": 0.9960197119029568,
+        "precision": 0.997597945829537,
+        "recall": 0.9971849643980791,
+        "f1": 0.9973914123638773,
+        "fpr": 0.007733333333333333,
+        "roc_auc": 0.9997195341392062,
+        "pr_auc": 0.9999052857813384,
+        "tp": 24088,
+        "fp": 58,
+        "tn": 7442,
+        "fn": 68
+      },
+      "calibrated_threshold": 0.46,
+      "val_metrics_calibrated": {
+        "threshold": 0.46,
+        "accuracy": 0.9960197119029568,
+        "precision": 0.9973507740707012,
+        "recall": 0.9974333498923663,
+        "f1": 0.9973920602723848,
+        "fpr": 0.008533333333333334,
+        "roc_auc": 0.9997195341392062,
+        "pr_auc": 0.9999052857813384,
+        "tp": 24094,
+        "fp": 64,
+        "tn": 7436,
+        "fn": 62
+      },
+      "val_per_attack_recall": {
+        "backdoor": 0.999,
+        "ddos": 0.9883333333333333,
+        "dos": 0.9983333333333333,
+        "injection": 0.9983333333333333,
+        "mitm": 0.9487179487179487,
+        "normal": 0.9914666666666667,
+        "password": 0.9996666666666667,
+        "ransomware": 0.999,
+        "scanning": 0.9996666666666667,
+        "xss": 0.9996666666666667
+      }
+    }
+  },
+  "packaged_at": "2026-10-14T20:15:43.287340+00:00",
+  "mlflow": {
+    "tracking_uri": "sqlite:////tmp/pytest-of-streamliner/pytest-3/test_mlflow_model_registration0/test_mlflow.db",
+    "experiment_id": "1",
+    "run_id": "6303a83e7a654548b85903438552eb17",
+    "registered_model_name": "swayamkavach_ids",
+    "registered_model_version": 1,
+    "git_commit_sha": "3169c2c4c52e1b1f1fbde6628dd1c87706bd3144"
+  }
+}

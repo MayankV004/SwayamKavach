@@ -1,11 +1,41 @@
-"""Unit tests for Phase 7 Two-Slot Canary Rollout, progressive stepping, and warm rollback."""
-
+from unittest.mock import MagicMock
+import pytest
 from starlette.testclient import TestClient
 
 from swayamkavach.api.main import app
 from swayamkavach.db.models import LifecycleStateRecordDB
 from swayamkavach.db.session import SessionLocal, init_db
 from swayamkavach.deployment.canary import CanaryController, RolloutStatus
+
+
+@pytest.fixture(autouse=True)
+def mock_serving_slot_http(monkeypatch):
+    """Hermetic test isolation: mock candidate slot readiness probe and reload endpoint."""
+    mock_resp_ready = MagicMock()
+    mock_resp_ready.status_code = 200
+    mock_resp_ready.json.return_value = {"status": "ready", "is_ready": True, "inference_mode": "pipeline"}
+
+    mock_resp_reload = MagicMock()
+    mock_resp_reload.status_code = 200
+    mock_resp_reload.json.return_value = {"status": "reloaded"}
+
+    class MockHttpxClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def get(self, url, **kwargs):
+            return mock_resp_ready
+
+        def post(self, url, **kwargs):
+            return mock_resp_reload
+
+    monkeypatch.setattr("httpx.Client", MockHttpxClient)
 
 
 def test_canary_staging_and_initial_weight(tmp_path):
@@ -226,3 +256,46 @@ def test_canary_deployment_api_flow():
     assert rb_data["candidate_release"] is None
     assert rb_data["canary_weight"] == 0.0
     assert "ROLLED_BACK" in rb_data["last_reason"]
+
+
+def test_canary_health_gate_failure_triggers_warm_rollback(tmp_path, monkeypatch):
+    """Verify health gate failure triggers warm rollback when readyz fails."""
+    init_db()
+    db = SessionLocal()
+    conf_file = tmp_path / "nginx_test.conf"
+    conf_file.write_text("dummy")
+
+    # Override mock to simulate 503 Service Unavailable
+    mock_resp_503 = MagicMock()
+    mock_resp_503.status_code = 503
+
+    class FailingClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def get(self, url, **kwargs):
+            return mock_resp_503
+
+        def post(self, url, **kwargs):
+            return MagicMock(status_code=200)
+
+    monkeypatch.setattr("httpx.Client", FailingClient)
+
+    controller = CanaryController(nginx_conf_path=conf_file)
+    controller.stage_candidate(db, candidate_release="R2-faulty", initial_weight=0.05)
+
+    with pytest.raises(ValueError, match="Canary progression blocked: Candidate slot B failed readiness check"):
+        controller.advance_stage(db)
+
+    # Confirm warm rollback restored 100% traffic to champion
+    state = controller.get_state(db)
+    assert state.candidate_release is None
+    assert state.canary_weight == 0.0
+    assert "Health gate failure" in str(state.last_reason)
+    db.close()
