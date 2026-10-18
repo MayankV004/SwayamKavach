@@ -27,9 +27,10 @@ for pid_file in "${PID_DIR}"/*.pid; do
     fi
 done
 
-# Fallback cleanup on port 8000, 8001, 8002 if needed
+# Fallback cleanup on port 8000, 8001, 8002, 5000 if needed
 fuser -k 8000/tcp 2>/dev/null || true
 fuser -k 8001/tcp 2>/dev/null || true
 fuser -k 8002/tcp 2>/dev/null || true
+fuser -k 5000/tcp 2>/dev/null || true
 
 echo -e "${BOLD}${GREEN}✓ All local background services stopped.${RESET}"

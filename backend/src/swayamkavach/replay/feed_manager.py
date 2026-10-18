@@ -12,8 +12,7 @@ import re
 import subprocess
 import threading
 import time
-from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -323,7 +322,9 @@ class LiveSnifferWorker:
                 logger.warning("Failed to submit live sniff batch: %s", e)
 
     def _run(self) -> None:
-        # Launch docker tcpdump without root
+        # Launch docker tcpdump without root (prefers offline-ready swayamkavach-sniffer image)
+        sniffer_image = "swayamkavach-sniffer:latest"
+        tcpdump_filter = "exec tcpdump -l -n -tt -q -i any 'not (port 8000 or port 8001 or port 8002 or port 3000 or port 5000)'"
         cmd = [
             "docker",
             "run",
@@ -332,10 +333,10 @@ class LiveSnifferWorker:
             self.CONTAINER_NAME,
             "--net=host",
             "--cap-add=NET_RAW",
-            "alpine",
+            sniffer_image,
             "sh",
             "-c",
-            "apk add --no-cache tcpdump >/dev/null 2>&1 && exec tcpdump -l -n -tt -q -i any 'not (port 8000 or port 8001 or port 8002 or port 3000 or port 5000)'",
+            f"if ! command -v tcpdump >/dev/null 2>&1; then apk add --no-cache tcpdump >/dev/null 2>&1; fi && {tcpdump_filter}",
         ]
 
         try:

@@ -49,29 +49,53 @@ export default function IngestionPage() {
               </CardTitle>
             </div>
             <CardDescription className="text-xs text-zinc-500">
-              5 connection features extracted by pinned Zeek network extractor v1
+              11 connection features extracted by pinned Zeek network extractor v1 (ton-conn-11-v1)
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-4 text-xs space-y-2.5">
-            <div className="p-3 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+          <CardContent className="pt-4 text-xs space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
+            <div className="p-2.5 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
               <span className="font-bold text-zinc-900 block font-mono">duration</span>
               <span className="text-zinc-600 text-xs">Connection duration in seconds (float)</span>
             </div>
-            <div className="p-3 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+            <div className="p-2.5 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
               <span className="font-bold text-zinc-900 block font-mono">src_bytes</span>
               <span className="text-zinc-600 text-xs">Payload bytes sent by origin host (int)</span>
             </div>
-            <div className="p-3 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+            <div className="p-2.5 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
               <span className="font-bold text-zinc-900 block font-mono">dst_bytes</span>
               <span className="text-zinc-600 text-xs">Payload bytes sent by destination host (int)</span>
             </div>
-            <div className="p-3 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+            <div className="p-2.5 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
               <span className="font-bold text-zinc-900 block font-mono">src_ip_bytes</span>
               <span className="text-zinc-600 text-xs">Total IP-layer bytes sent by origin host (int)</span>
             </div>
-            <div className="p-3 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+            <div className="p-2.5 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
               <span className="font-bold text-zinc-900 block font-mono">dst_ip_bytes</span>
               <span className="text-zinc-600 text-xs">Total IP-layer bytes sent by destination host (int)</span>
+            </div>
+            <div className="p-2.5 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+              <span className="font-bold text-zinc-900 block font-mono">src_pkts</span>
+              <span className="text-zinc-600 text-xs">Originator packet count (int)</span>
+            </div>
+            <div className="p-2.5 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+              <span className="font-bold text-zinc-900 block font-mono">dst_pkts</span>
+              <span className="text-zinc-600 text-xs">Responder packet count (int)</span>
+            </div>
+            <div className="p-2.5 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+              <span className="font-bold text-zinc-900 block font-mono">missed_bytes</span>
+              <span className="text-zinc-600 text-xs">Missed bytes for packet capture quality tracking (int)</span>
+            </div>
+            <div className="p-2.5 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+              <span className="font-bold text-zinc-900 block font-mono">proto</span>
+              <span className="text-zinc-600 text-xs">Transport protocol: tcp, udp, icmp (categorical string)</span>
+            </div>
+            <div className="p-2.5 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+              <span className="font-bold text-zinc-900 block font-mono">service</span>
+              <span className="text-zinc-600 text-xs">Identified application service: http, dns, etc. (categorical string)</span>
+            </div>
+            <div className="p-2.5 rounded-lg bg-zinc-50/70 border border-zinc-200/80">
+              <span className="font-bold text-zinc-900 block font-mono">conn_state</span>
+              <span className="text-zinc-600 text-xs">Zeek connection state: SF, S0, REJ, etc. (categorical string)</span>
             </div>
           </CardContent>
         </Card>

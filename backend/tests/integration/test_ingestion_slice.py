@@ -46,7 +46,7 @@ def _build_sample_batch(batch_id: str = "batch-test-101", count: int = 5) -> Bat
     return BatchIngestRequest(
         batch_id=batch_id,
         sensor_id="sensor-alpha",
-        schema_version="ton-conn-5-v1",
+        schema_version="ton-conn-11-v1",
         extractor_id="zeek-test-sha",
         events=events,
     )

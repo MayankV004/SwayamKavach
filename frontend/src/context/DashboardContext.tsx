@@ -176,7 +176,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       const payload = {
         batch_id: batchId,
         sensor_id: "zeek-sensor-lab-1",
-        schema_version: "ton-conn-5-v1",
+        schema_version: "ton-conn-11-v1",
         extractor_id: "zeek-pinned-v1",
         events: [
           {

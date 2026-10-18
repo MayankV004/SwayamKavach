@@ -121,6 +121,15 @@ class CanaryController:
 
         self.update_nginx_weights(active_slot=active, canary_weight=initial_weight)
 
+        # Notify inactive slot to warm candidate bundle
+        cand_port = 8002 if cand_slot == "B" else 8001
+        try:
+            import httpx
+            with httpx.Client(timeout=1.0) as client:
+                client.post(f"http://localhost:{cand_port}/reload", params={"release_id": candidate_release})
+        except Exception:
+            pass
+
         logger.info(
             "Staged candidate %s in Slot %s with canary weight %.2f",
             candidate_release,

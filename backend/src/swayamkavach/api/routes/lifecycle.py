@@ -125,3 +125,63 @@ def get_lifecycle_state(
         chosen_action=action,
         updated_at=datetime.now(UTC),
     )
+
+
+@router.post("/reset", response_model=LifecycleState, status_code=status.HTTP_200_OK)
+def reset_lifecycle_state(db: Session = Depends(get_db)):
+    """Reset lifecycle state to clean nominal baseline (Champion R1 on Slot A, Canary 0%)."""
+    record = db.query(LifecycleStateRecordDB).first()
+    nominal_fp = {
+        "D_X": 0.012,
+        "D_Y": 0.008,
+        "D_B": 0.045,
+        "Q": 0.999,
+        "L": 0.985,
+        "S": 2000,
+        "R": 1,
+    }
+    if record is None:
+        record = LifecycleStateRecordDB(
+            id=1,
+            champion_release="R1",
+            active_slot="A",
+            candidate_release=None,
+            candidate_slot=None,
+            canary_weight=0.0,
+            last_action="A0",
+            last_fingerprint=nominal_fp,
+            updated_at=datetime.now(UTC),
+        )
+        db.add(record)
+    else:
+        record.champion_release = "R1"
+        record.active_slot = "A"
+        record.candidate_release = None
+        record.candidate_slot = None
+        record.canary_weight = 0.0
+        record.last_action = "A0"
+        record.last_fingerprint = nominal_fp
+        record.updated_at = datetime.now(UTC)
+
+    db.commit()
+
+    # Reset serving slots back to R1 baseline threshold
+    try:
+        import httpx
+        with httpx.Client(timeout=1.0) as client:
+            client.post("http://localhost:8001/reload", params={"release_id": "R1", "threshold": 0.42})
+            client.post("http://localhost:8002/reload", params={"release_id": "R1", "threshold": 0.42})
+    except Exception:
+        pass
+
+    logger.info("Reset lifecycle state to nominal baseline: Champion R1 on Slot A, Canary 0%")
+    return LifecycleState(
+        champion_release="R1",
+        active_slot="A",
+        candidate_release=None,
+        candidate_slot=None,
+        canary_weight=0.0,
+        last_fingerprint=DamageFingerprint(**nominal_fp),
+        chosen_action=RepairAction.A0,
+        updated_at=datetime.now(UTC),
+    )

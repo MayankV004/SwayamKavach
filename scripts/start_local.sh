@@ -39,33 +39,39 @@ cd "${REPO_ROOT}/backend"
 export PYTHONPATH="${REPO_ROOT}/backend/src:${REPO_ROOT}/backend:${PYTHONPATH:-}"
 VENV_BIN="${REPO_ROOT}/backend/.venv/bin"
 
-echo -e "${BOLD}[1/4] Starting API Control Plane on http://localhost:8000...${RESET}"
+echo -e "${BOLD}[1/5] Starting API Control Plane on http://localhost:8000...${RESET}"
 nohup "${VENV_BIN}/uvicorn" swayamkavach.api.main:app --host 0.0.0.0 --port 8000 --reload > "${LOG_DIR}/api.log" 2>&1 &
 echo $! > "${PID_DIR}/api.pid"
 disown
 
-echo -e "${BOLD}[2/4] Starting Champion Serving Slot A on http://localhost:8001...${RESET}"
+echo -e "${BOLD}[2/5] Starting Champion Serving Slot A on http://localhost:8001...${RESET}"
 nohup env SLOT_ID=A RELEASE_ID=R1 "${VENV_BIN}/uvicorn" swayamkavach.serving.app:app --host 0.0.0.0 --port 8001 > "${LOG_DIR}/serving_a.log" 2>&1 &
 echo $! > "${PID_DIR}/serving_a.pid"
 disown
 
-echo -e "${BOLD}[3/4] Starting Standby Serving Slot B on http://localhost:8002...${RESET}"
+echo -e "${BOLD}[3/5] Starting Standby Serving Slot B on http://localhost:8002...${RESET}"
 nohup env SLOT_ID=B RELEASE_ID=R1 "${VENV_BIN}/uvicorn" swayamkavach.serving.app:app --host 0.0.0.0 --port 8002 > "${LOG_DIR}/serving_b.log" 2>&1 &
 echo $! > "${PID_DIR}/serving_b.pid"
 disown
 
-echo -e "${BOLD}[4/4] Starting Inference Consumer Worker...${RESET}"
+echo -e "${BOLD}[4/5] Starting Inference Consumer Worker...${RESET}"
 nohup "${VENV_BIN}/python" src/swayamkavach/inference_consumer.py > "${LOG_DIR}/consumer.log" 2>&1 &
 echo $! > "${PID_DIR}/consumer.pid"
+disown
+
+echo -e "${BOLD}[5/5] Starting MLflow Tracking & Model Registry on http://localhost:5000...${RESET}"
+nohup "${VENV_BIN}/mlflow" ui --backend-store-uri "sqlite:///${REPO_ROOT}/backend/mlflow.db" --host 0.0.0.0 --port 5000 > "${LOG_DIR}/mlflow.log" 2>&1 &
+echo $! > "${PID_DIR}/mlflow.pid"
 disown
 
 cd "${REPO_ROOT}"
 
 echo ""
-echo -e "${BOLD}${GREEN}✓ All 4 backend services are running in the background!${RESET}"
+echo -e "${BOLD}${GREEN}✓ All 5 backend services are running in the background!${RESET}"
 echo -e "  - API Docs:      ${CYAN}http://localhost:8000/docs${RESET}"
 echo -e "  - Slot A Health: ${CYAN}http://localhost:8001/health${RESET}"
 echo -e "  - Slot B Health: ${CYAN}http://localhost:8002/health${RESET}"
+echo -e "  - MLflow UI:     ${CYAN}http://localhost:5000${RESET}"
 echo -e "  - Logs folder:   ${LOG_DIR}/"
 echo ""
 echo -e "To start the frontend dashboard, run:"

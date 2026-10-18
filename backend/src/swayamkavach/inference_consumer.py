@@ -6,6 +6,7 @@ and transactionally records predictions and advisory alerts.
 
 import logging
 import os
+import random
 import time
 import uuid
 from datetime import UTC, datetime
@@ -15,18 +16,46 @@ from sqlalchemy.orm import Session
 
 from schemas.flow_event import FlowEvent, TONConnectionFeatures
 from schemas.prediction import PredictionRequest, PredictionResponse
-from swayamkavach.db.models import AlertRecordDB, FlowEventRecordDB, PredictionRecordDB
+from swayamkavach.db.models import (
+    AlertRecordDB,
+    FlowEventRecordDB,
+    LifecycleStateRecordDB,
+    PredictionRecordDB,
+)
 from swayamkavach.db.session import SessionLocal
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] consumer: %(message)s")
 logger = logging.getLogger("swayamkavach.consumer")
 
-SERVING_URL = os.getenv("SLOT_A_URL", "http://localhost:8001")
+SLOT_A_URL = os.getenv("SLOT_A_URL", "http://localhost:8001")
+SLOT_B_URL = os.getenv("SLOT_B_URL", "http://localhost:8002")
 BATCH_SIZE = int(os.getenv("CONSUMER_BATCH_SIZE", "50"))
 POLL_INTERVAL_SECONDS = float(os.getenv("CONSUMER_POLL_INTERVAL", "1.0"))
 
 
-def process_unpredicted_events(db: Session, serving_url: str = SERVING_URL) -> int:
+def resolve_serving_endpoint(db: Session) -> tuple[str, str]:
+    """Dynamically determine target serving URL based on authoritative lifecycle state."""
+    try:
+        rec = db.query(LifecycleStateRecordDB).first()
+        if rec:
+            # Handle active canary rollout with traffic weight
+            if rec.candidate_release and rec.canary_weight > 0.0:
+                if random.random() < rec.canary_weight:
+                    cand_slot = rec.candidate_slot or "B"
+                    target_url = SLOT_B_URL if cand_slot == "B" else SLOT_A_URL
+                    return target_url, cand_slot
+
+            # Default to active champion slot
+            active = rec.active_slot or "A"
+            target_url = SLOT_B_URL if active == "B" else SLOT_A_URL
+            return target_url, active
+    except Exception as exc:
+        logger.warning(f"Could not read lifecycle state for dynamic routing: {exc}")
+
+    return SLOT_A_URL, "A"
+
+
+def process_unpredicted_events(db: Session, serving_url: str | None = None) -> int:
     """Fetch unpredicted events, invoke model slot, and record results."""
     # 1. Claim up to BATCH_SIZE events
     events = (
@@ -56,15 +85,16 @@ def process_unpredicted_events(db: Session, serving_url: str = SERVING_URL) -> i
 
     req = PredictionRequest(events=flow_event_objs, prediction_purpose="production")
 
-    # 3. Request inference outside DB transaction
+    # 3. Resolve target serving slot and request inference outside DB transaction
+    target_url = serving_url or resolve_serving_endpoint(db)[0]
     try:
         with httpx.Client(timeout=10.0) as client:
-            resp = client.post(f"{serving_url}/predict", json=req.model_dump(mode="json"))
+            resp = client.post(f"{target_url}/predict", json=req.model_dump(mode="json"))
             resp.raise_for_status()
             pred_data = resp.json()
             prediction_response = PredictionResponse(**pred_data)
     except Exception as exc:
-        logger.error(f"Inference serving slot error ({serving_url}): {exc}")
+        logger.error(f"Inference serving slot error ({target_url}): {exc}")
         return 0
 
     # 4. Commit predictions and alerts atomically
@@ -106,7 +136,9 @@ def process_unpredicted_events(db: Session, serving_url: str = SERVING_URL) -> i
                 event_map[pred.event_id].is_predicted = True
 
         db.commit()
-        logger.info(f"Committed predictions for {len(events)} events (Serving Slot: {prediction_response.slot_id})")
+        logger.info(
+            f"Committed predictions for {len(events)} events (Serving Slot: {prediction_response.slot_id}, Release: {prediction_response.release_id} via {target_url})"
+        )
         return len(events)
     except Exception as exc:
         db.rollback()
@@ -116,7 +148,7 @@ def process_unpredicted_events(db: Session, serving_url: str = SERVING_URL) -> i
 
 def run_consumer_loop():
     """Continuous polling worker loop."""
-    logger.info(f"Starting inference consumer (Target: {SERVING_URL})...")
+    logger.info("Starting inference consumer with dynamic lifecycle slot routing (Slots: A=:8001, B=:8002)...")
     while True:
         db = SessionLocal()
         try:

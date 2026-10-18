@@ -53,6 +53,7 @@ def log_and_register_release(
     release_dir: Path,
     experiment_name: str = DEFAULT_EXPERIMENT_NAME,
     tracking_uri: str | None = None,
+    update_manifest: bool = True,
 ) -> dict[str, Any]:
     """Publish a validated model release bundle to MLflow and register it in the model registry."""
     client = configure_mlflow(tracking_uri)
@@ -166,8 +167,9 @@ def log_and_register_release(
             "git_commit_sha": git_sha,
         }
 
-        with open(manifest_file, "w", encoding="utf-8") as f:
-            json.dump(manifest, f, indent=2)
+        if update_manifest:
+            with open(manifest_file, "w", encoding="utf-8") as f:
+                json.dump(manifest, f, indent=2)
 
         logger.info(
             f"Release {release_id} registered in MLflow: Model='{REGISTERED_MODEL_NAME}', "

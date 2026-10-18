@@ -54,14 +54,14 @@ export default function OverviewPage() {
     {
       num: "04",
       name: "Traffic Ingestion Probe",
-      desc: "Submit synthetic TON_IoT 5-feature packets into POST /api/v1/ingestion/batches to inspect queue latency.",
+      desc: "Submit synthetic TON_IoT 11-feature packets into POST /api/v1/ingestion/batches to inspect queue latency.",
       href: "/ingestion",
-      metric: "ton-conn-5-v1",
+      metric: "ton-conn-11-v1",
     },
     {
       num: "05",
       name: "Empirical Benchmarks",
-      desc: "Comparative scoreboard over continuous 2,000-event windows (+71.4% compute savings, +93.2% label savings).",
+      desc: "Comparative scoreboard over continuous 2,000-event windows (>50% compute savings, >40% label savings).",
       href: "/benchmarks",
       metric: "DARI vs Baselines",
     },

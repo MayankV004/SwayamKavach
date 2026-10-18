@@ -2,14 +2,16 @@
 
 import os
 from collections.abc import Generator
+from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent.parent.parent / "swayamkavach_dev.db"
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "sqlite:///./swayamkavach_dev.db"  # Defaults to local SQLite for frictionless local test / dev without docker
+    f"sqlite:///{DEFAULT_DB_PATH}"  # Anchored to backend directory for deterministic local dev
 )
 
 # SQLite needs connect_args check_same_thread=False

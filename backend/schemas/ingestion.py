@@ -15,7 +15,7 @@ class BatchIngestRequest(BaseModel):
 
     batch_id: str = Field(..., description="Unique batch identifier for idempotency")
     sensor_id: str = Field(..., description="Sensor or replay agent identifier")
-    schema_version: str = Field(default="ton-conn-5-v1", description="Declared feature schema version")
+    schema_version: str = Field(default="ton-conn-11-v1", description="Declared feature schema version")
     extractor_id: str = Field(default="zeek-pinned-v1", description="Digest/ID of feature extractor implementation")
     events: list[FlowEvent] = Field(..., min_length=1, max_length=10000, description="List of flow events in batch")
 

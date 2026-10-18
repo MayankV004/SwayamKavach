@@ -1,6 +1,6 @@
 """SQLAlchemy ORM models for durable system state."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -19,7 +19,7 @@ class IngestionBatchRecordDB(Base):
     extractor_id: Mapped[str] = mapped_column(String(128), nullable=False)
     event_count: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(32), default="accepted", index=True)
-    received_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    received_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
     events = relationship("FlowEventRecordDB", back_populates="batch", cascade="all, delete-orphan")
@@ -38,7 +38,7 @@ class FlowEventRecordDB(Base):
     features: Mapped[dict] = mapped_column(JSON, nullable=False)
     identifiers: Mapped[dict] = mapped_column(JSON, nullable=True)
     is_predicted: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     batch = relationship("IngestionBatchRecordDB", back_populates="events")
 
@@ -56,7 +56,7 @@ class PredictionRecordDB(Base):
     release_id: Mapped[str] = mapped_column(String(64), nullable=False)
     model_version: Mapped[str] = mapped_column(String(128), nullable=False)
     slot_id: Mapped[str] = mapped_column(String(8), nullable=False)
-    predicted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    predicted_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     # Invariant: exactly one authoritative production prediction per event_id
     __table_args__ = (
@@ -75,7 +75,7 @@ class AlertRecordDB(Base):
     score: Mapped[float] = mapped_column(Float, nullable=False)
     release_id: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="active", index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     meta_info: Mapped[dict] = mapped_column(JSON, nullable=True)
 
 
@@ -90,9 +90,9 @@ class LifecycleStateRecordDB(Base):
     candidate_release: Mapped[str] = mapped_column(String(64), nullable=True)
     candidate_slot: Mapped[str] = mapped_column(String(8), nullable=True)
     canary_weight: Mapped[float] = mapped_column(Float, default=0.0)
-    last_action: Mapped[str] = mapped_column(String(16), default="A0")
+    last_action: Mapped[str] = mapped_column(String(128), default="A0")
     last_fingerprint: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
 
 class GroundTruthLabelRecordDB(Base):
@@ -105,5 +105,5 @@ class GroundTruthLabelRecordDB(Base):
     attack_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     source: Mapped[str] = mapped_column(String(64), default="analyst_verification")
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
-    received_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), index=True)
 

@@ -34,6 +34,9 @@ start:
 stop:
 	./scripts/stop_local.sh
 
+reset-demo:
+	cd backend && uv run python ../scripts/reset_demo.py
+
 # MLflow Tracking & Model Registry UI
 mlflow:
 	cd backend && uv run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000

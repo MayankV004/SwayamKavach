@@ -38,12 +38,18 @@ def test_mlflow_model_registration_and_restoration(tmp_path):
     release_dir = backend_dir / "releases" / "R1"
     test_tracking_uri = f"sqlite:///{tmp_path / 'test_mlflow.db'}"
 
-    # 1. Register release in isolated test MLflow DB
+    manifest_path = release_dir / "manifest.json"
+    manifest_before = manifest_path.read_text(encoding="utf-8")
+
+    # 1. Register release in isolated test MLflow DB without mutating checked-in release manifest
     receipt = log_and_register_release(
         release_dir=release_dir,
         experiment_name="test_swayamkavach_ids",
         tracking_uri=test_tracking_uri,
+        update_manifest=False,
     )
+
+    assert manifest_path.read_text(encoding="utf-8") == manifest_before, "Test modified checked-in manifest.json!"
 
     assert receipt["release_id"] == "R1"
     assert receipt["model_name"] == REGISTERED_MODEL_NAME

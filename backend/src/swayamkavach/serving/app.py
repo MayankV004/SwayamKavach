@@ -39,37 +39,72 @@ FEATURE_COLUMNS = [
     "conn_state",
 ]
 
-# Attempt to load packaged model bundle for RELEASE_ID
 backend_dir = Path(__file__).resolve().parent.parent.parent.parent
-release_dir = backend_dir / "releases" / RELEASE_ID
-manifest_file = release_dir / "manifest.json"
-bundle_file = release_dir / "pipeline.joblib"
-
 _pipeline = None
 _is_ready = False
 
-try:
-    if manifest_file.exists():
-        with open(manifest_file, encoding="utf-8") as f:
-            manifest_data = json.load(f)
-            MODEL_VERSION = manifest_data.get("model_version", MODEL_VERSION)
-            DECISION_THRESHOLD = float(manifest_data.get("decision_threshold", DECISION_THRESHOLD))
 
-    if bundle_file.exists():
-        _pipeline = joblib.load(bundle_file)
-        logger.info(f"Loaded release {RELEASE_ID} pipeline from {bundle_file}")
+def load_model_bundle(rel_id: str, threshold: float | None = None) -> bool:
+    """Load model bundle pipeline and manifest for a given release ID into memory."""
+    global RELEASE_ID, MODEL_VERSION, DECISION_THRESHOLD, _pipeline, _is_ready
+    rel_dir = backend_dir / "releases" / rel_id
+    m_file = rel_dir / "manifest.json"
+    b_file = rel_dir / "pipeline.joblib"
+
+    if m_file.exists():
+        try:
+            with open(m_file, encoding="utf-8") as f:
+                manifest_data = json.load(f)
+                MODEL_VERSION = manifest_data.get("model_version", MODEL_VERSION)
+                if threshold is None:
+                    DECISION_THRESHOLD = float(manifest_data.get("decision_threshold", DECISION_THRESHOLD))
+        except Exception as e:
+            logger.warning(f"Error reading manifest {m_file}: {e}")
+
+    if threshold is not None:
+        DECISION_THRESHOLD = float(threshold)
+
+    if b_file.exists():
+        try:
+            _pipeline = joblib.load(b_file)
+            RELEASE_ID = rel_id
+            _is_ready = True
+            logger.info(f"Slot {SLOT_ID} successfully loaded release {rel_id} pipeline from {b_file}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to load bundle {b_file}: {e}")
+            _is_ready = True
+            return False
     else:
-        logger.warning(f"No release bundle found at {bundle_file}; serving in heuristic fallback mode.")
-    _is_ready = True
-except Exception as e:
-    logger.error(f"Failed to load release {RELEASE_ID} model bundle: {e}")
-    _is_ready = True  # Ready with heuristic fallback
+        logger.warning(f"No release bundle found at {b_file}; serving in fallback mode.")
+        RELEASE_ID = rel_id
+        _pipeline = None
+        _is_ready = True
+        return False
+
+
+# Initial bundle load on startup (reads calibrated threshold from manifest)
+load_model_bundle(RELEASE_ID)
 
 app = FastAPI(
     title=f"SwayamKavach Serving Slot {SLOT_ID}",
     description=f"Isolated model serving runtime for release {RELEASE_ID}",
     version="0.1.0",
 )
+
+
+@app.post("/reload", status_code=status.HTTP_200_OK)
+def reload_slot_model(release_id: str | None = None, threshold: float | None = None):
+    """Hot-swap the active model bundle or calibrate decision threshold without restart."""
+    target_rel = release_id or RELEASE_ID
+    loaded = load_model_bundle(target_rel, threshold=threshold)
+    return {
+        "status": "reloaded" if loaded else "fallback_active",
+        "slot_id": SLOT_ID,
+        "release_id": RELEASE_ID,
+        "model_version": MODEL_VERSION,
+        "decision_threshold": DECISION_THRESHOLD,
+    }
 
 
 @app.get("/health", status_code=status.HTTP_200_OK)
