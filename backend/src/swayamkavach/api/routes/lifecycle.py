@@ -60,15 +60,35 @@ def get_lifecycle_state(
     if evaluate_live:
         window = WindowSelector().select_latest_window(db, window_size=500)
         if window is not None and len(window.features_df) > 0:
+            from swayamkavach.damage.persistence import PersistenceTracker
+
             calc = DamageCalculator()
+            tracker = PersistenceTracker()
+            d_x = calc.compute_distribution_drift(window.features_df)
+            d_b = calc.compute_boundary_damage(window.scores)
+            d_y = calc.compute_performance_damage(window.y_true, window.scores)
+            q = calc.compute_data_quality(window.features_df)
+            r_count = tracker.record_and_compute_persistence(
+                db=db,
+                window_id=window.window_id,
+                d_x=d_x,
+                d_y=d_y,
+                d_b=d_b,
+                q=q,
+                l=window.label_reliability * window.label_coverage,
+                s=window.sample_count,
+            )
             fingerprint = calc.compute_fingerprint(
                 current_df=window.features_df,
                 scores=window.scores,
                 y_true=window.y_true,
                 label_reliability=window.label_reliability,
+                label_coverage=window.label_coverage,
+                persistence_count=r_count,
             )
             try:
                 from swayamkavach.dari.selector import DARISolver
+
                 decision = DARISolver().solve(fingerprint)
                 action = decision.chosen_action
             except Exception as e:
@@ -91,6 +111,7 @@ def get_lifecycle_state(
                 scores=window.scores,
                 y_true=window.y_true,
                 label_reliability=window.label_reliability,
+                label_coverage=window.label_coverage,
             )
         else:
             fingerprint = DamageFingerprint(
@@ -164,6 +185,13 @@ def reset_lifecycle_state(db: Session = Depends(get_db)):
         record.updated_at = datetime.now(UTC)
 
     db.commit()
+
+    # Clear window damage persistence history
+    try:
+        from swayamkavach.damage.persistence import PersistenceTracker
+        PersistenceTracker().clear_history(db)
+    except Exception:
+        pass
 
     # Reset serving slots back to R1 baseline threshold
     try:

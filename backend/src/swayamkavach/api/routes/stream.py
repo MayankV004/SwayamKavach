@@ -5,8 +5,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from swayamkavach.api.auth import OperatorContext, require_control_plane_auth
 from swayamkavach.replay.feed_manager import FeedManager
 
 logger = logging.getLogger("swayamkavach.api.stream")
@@ -22,42 +23,54 @@ def get_stream_status() -> dict[str, Any]:
 
 
 @router.post("/replay/start")
-def start_replay_feed() -> dict[str, Any]:
+def start_replay_feed(
+    operator_ctx: OperatorContext = Depends(require_control_plane_auth),
+) -> dict[str, Any]:
     """Start continuous streaming of real IoT attack/normal telemetry."""
     mgr = FeedManager.get_instance()
     return mgr.start_replay()
 
 
 @router.post("/replay/stop")
-def stop_replay_feed() -> dict[str, Any]:
+def stop_replay_feed(
+    operator_ctx: OperatorContext = Depends(require_control_plane_auth),
+) -> dict[str, Any]:
     """Stop continuous streaming of IoT replay telemetry."""
     mgr = FeedManager.get_instance()
     return mgr.stop_replay()
 
 
 @router.post("/sniffer/start")
-def start_sniffer_feed() -> dict[str, Any]:
+def start_sniffer_feed(
+    operator_ctx: OperatorContext = Depends(require_control_plane_auth),
+) -> dict[str, Any]:
     """Start real-time packet capture on host network interfaces (WiFi/LAN)."""
     mgr = FeedManager.get_instance()
     return mgr.start_sniffer()
 
 
 @router.post("/sniffer/stop")
-def stop_sniffer_feed() -> dict[str, Any]:
+def stop_sniffer_feed(
+    operator_ctx: OperatorContext = Depends(require_control_plane_auth),
+) -> dict[str, Any]:
     """Stop real-time packet capture on host interfaces."""
     mgr = FeedManager.get_instance()
     return mgr.stop_sniffer()
 
 
 @router.post("/all/start")
-def start_all_feeds() -> dict[str, Any]:
+def start_all_feeds(
+    operator_ctx: OperatorContext = Depends(require_control_plane_auth),
+) -> dict[str, Any]:
     """Start both IoT Replay and Host Live Sniffer simultaneously."""
     mgr = FeedManager.get_instance()
     return mgr.start_all()
 
 
 @router.post("/all/stop")
-def stop_all_feeds() -> dict[str, Any]:
+def stop_all_feeds(
+    operator_ctx: OperatorContext = Depends(require_control_plane_auth),
+) -> dict[str, Any]:
     """Stop all active network stream feeds."""
     mgr = FeedManager.get_instance()
     return mgr.stop_all()

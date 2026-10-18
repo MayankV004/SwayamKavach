@@ -19,6 +19,8 @@ from langgraph.graph import END, StateGraph
 
 from schemas.lifecycle import DamageFingerprint, RepairAction
 from swayamkavach.damage.calculator import DamageCalculator
+from swayamkavach.damage.persistence import PersistenceTracker
+from swayamkavach.dari.adapter import LocalSubspaceAdapter
 from swayamkavach.dari.calibrator import ThresholdCalibrator
 from swayamkavach.dari.retrainer import SubprocessRetrainer
 from swayamkavach.dari.selector import DARISolver, SelectionResult
@@ -36,11 +38,12 @@ class DARIState(TypedDict, total=False):
     sample_count: int
     features_records: list[dict[str, Any]]
     scores: list[float]
-    y_true: list[int] | None
+    y_true: list[int | None] | None
     fingerprint: dict[str, Any]
     selection_result: dict[str, Any]
     chosen_action: str
     calibration_result: dict[str, Any] | None
+    adaptation_result: dict[str, Any] | None
     retraining_result: dict[str, Any] | None
     audit_trail: list[str]
     status: str
@@ -102,11 +105,41 @@ def damage_node(state: DARIState) -> dict[str, Any]:
     scores = state.get("scores", [])
     y_true = state.get("y_true")
 
+    # Compute persistence R from history
+    persistence_count = 1
+    window_id = state.get("window_id", f"W_live_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}")
+    try:
+        db = SessionLocal()
+        try:
+            tracker = PersistenceTracker()
+            calc_temp = DamageCalculator()
+            d_x = calc_temp.compute_distribution_drift(df)
+            d_b = calc_temp.compute_boundary_damage(scores)
+            d_y = calc_temp.compute_performance_damage(y_true, scores)
+            q = calc_temp.compute_data_quality(df)
+            valid_cnt = sum(1 for y in y_true if y is not None and not pd.isna(y)) if y_true else 0
+            cov = valid_cnt / len(y_true) if (y_true and len(y_true) > 0) else 0.0
+            persistence_count = tracker.record_and_compute_persistence(
+                db=db,
+                window_id=window_id,
+                d_x=d_x,
+                d_y=d_y,
+                d_b=d_b,
+                q=q,
+                l=0.95 * cov,
+                s=len(df),
+            )
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.debug("Database persistence tracking bypassed or unavailable: %s", exc)
+
     calc = DamageCalculator()
     fp: DamageFingerprint = calc.compute_fingerprint(
         current_df=df,
         scores=scores,
         y_true=y_true,
+        persistence_count=persistence_count,
     )
 
     audit.append(
@@ -146,6 +179,8 @@ def selector_node(state: DARIState) -> dict[str, Any]:
 
 def calibrate_node(state: DARIState) -> dict[str, Any]:
     """Node 4 (A1): Hot threshold recalibration without retraining."""
+    import pandas as pd
+
     audit = list(state.get("audit_trail", []))
     audit.append(f"[{datetime.now(UTC).isoformat()}] Entered CalibrateNode (Action A1)")
 
@@ -154,28 +189,71 @@ def calibrate_node(state: DARIState) -> dict[str, Any]:
 
     calibrator = ThresholdCalibrator()
     if y_true is not None and len(y_true) > 0 and len(scores) > 0:
-        res = calibrator.calibrate(y_true=y_true, scores=scores[: len(y_true)])
+        # Extract aligned labeled events without fabrication
+        valid_indices = [i for i, y in enumerate(y_true) if y is not None and not pd.isna(y)]
+        if valid_indices and len(scores) >= max(valid_indices) + 1:
+            eval_y = [int(y_true[i]) for i in valid_indices]  # type: ignore[arg-type]
+            eval_s = [float(scores[i]) for i in valid_indices]
+            res = calibrator.calibrate(y_true=eval_y, scores=eval_s)
+        else:
+            res = calibrator.calibrate(y_true=[], scores=[])
     else:
-        # Fallback conservative calibration
-        res = calibrator.calibrate(
-            y_true=[0, 1],
-            scores=[0.1, 0.9],
-            current_threshold=0.42,
-        )
+        res = calibrator.calibrate(y_true=[], scores=[])
 
-    audit.append(
-        f"A1 Calibration complete: theta*={res.new_threshold:.3f} (Recall={res.recall:.4f}, FPR={res.fpr:.4f})"
-    )
+    if res.meets_constraints and res.status == "SUCCESS":
+        audit.append(
+            f"A1 Calibration complete: theta*={res.new_threshold:.3f} (Recall={res.recall:.4f}, FPR={res.fpr:.4f})"
+        )
+        # Propagate hot threshold update to active model serving runtime
+        try:
+            import httpx
+            with httpx.Client(timeout=1.0) as client:
+                client.post("http://localhost:8001/reload", params={"threshold": res.new_threshold})
+                client.post("http://localhost:8002/reload", params={"threshold": res.new_threshold})
+            audit.append(f"Successfully activated calibrated threshold theta*={res.new_threshold:.3f} on serving slots.")
+        except Exception:
+            audit.append(f"Serving slot unreachable; recorded calibrated threshold theta*={res.new_threshold:.3f} in state.")
+    else:
+        audit.append(
+            f"A1 Calibration deferred ({res.status}): security constraints not satisfied or evidence missing. Current threshold retained."
+        )
 
     return {
         "calibration_result": res.to_dict(),
         "audit_trail": audit,
-        "status": "calibrated",
+        "status": "calibrated" if res.meets_constraints else "calibration_inconclusive",
+    }
+
+
+def adapt_node(state: DARIState) -> dict[str, Any]:
+    """Node 5 (A2): Localized targeted subspace adaptation for candidate model."""
+    audit = list(state.get("audit_trail", []))
+    audit.append(f"[{datetime.now(UTC).isoformat()}] Entered AdaptNode (Action A2)")
+
+    features = state.get("features_records", [])
+    y_true = state.get("y_true") or []
+    candidate_id = f"R2-adapted-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}"
+
+    adapter = LocalSubspaceAdapter()
+    res = adapter.adapt_candidate(
+        features=features,
+        y_true=y_true,
+        candidate_release_id=candidate_id,
+    )
+
+    audit.append(
+        f"A2 Adaptation {res.status} in {res.adaptation_duration_seconds}s for release {res.candidate_release_id}"
+    )
+
+    return {
+        "adaptation_result": res.to_dict(),
+        "audit_trail": audit,
+        "status": "adapted" if res.status == "success" else "adaptation_deferred",
     }
 
 
 def retrain_node(state: DARIState) -> dict[str, Any]:
-    """Node 5 (A3): Resource-bounded subprocess retraining for candidate model."""
+    """Node 6 (A3): Resource-bounded subprocess retraining for candidate model."""
     audit = list(state.get("audit_trail", []))
     audit.append(f"[{datetime.now(UTC).isoformat()}] Entered RetrainNode (Action A3)")
 
@@ -195,7 +273,7 @@ def retrain_node(state: DARIState) -> dict[str, Any]:
 
 
 def audit_node(state: DARIState) -> dict[str, Any]:
-    """Node 6: Persist audit trail and update authoritative LifecycleStateRecordDB."""
+    """Node 7: Persist audit trail and update authoritative LifecycleStateRecordDB."""
     audit = list(state.get("audit_trail", []))
     audit.append(f"[{datetime.now(UTC).isoformat()}] Entered AuditNode (Lifecycle Finalized)")
 
@@ -237,9 +315,10 @@ def router_node(state: DARIState) -> str:
     action = state.get("chosen_action", "A0")
     if action == RepairAction.A1.value:
         return "calibrate"
+    elif action == RepairAction.A2.value:
+        return "adapt"
     elif action == RepairAction.A3.value:
         return "retrain"
-    # A0 and A2 (placeholder until Phase 6) route directly to audit
     return "audit"
 
 
@@ -252,6 +331,7 @@ def build_dari_graph() -> Any:
     workflow.add_node("damage", damage_node)
     workflow.add_node("selector", selector_node)
     workflow.add_node("calibrate", calibrate_node)
+    workflow.add_node("adapt", adapt_node)
     workflow.add_node("retrain", retrain_node)
     workflow.add_node("audit", audit_node)
 
@@ -266,6 +346,7 @@ def build_dari_graph() -> Any:
         router_node,
         {
             "calibrate": "calibrate",
+            "adapt": "adapt",
             "retrain": "retrain",
             "audit": "audit",
         },
@@ -273,7 +354,9 @@ def build_dari_graph() -> Any:
 
     # Terminal convergence
     workflow.add_edge("calibrate", "audit")
+    workflow.add_edge("adapt", "audit")
     workflow.add_edge("retrain", "audit")
     workflow.add_edge("audit", END)
 
     return workflow.compile()
+

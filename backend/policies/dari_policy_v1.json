@@ -1,0 +1,25 @@
+{
+  "policy_version": "v1.0",
+  "q_min": 0.70,
+  "s_min_retrain": 1000,
+  "s_min_adapt": 100,
+  "l_min": 0.70,
+  "r_min_for_a3": 2,
+  "drift_threshold": 0.25,
+  "boundary_ambiguity_threshold": 0.15,
+  "severe_damage_threshold": 0.40,
+  "cost_weight": 0.25,
+  "risk_weight": 0.20,
+  "action_costs": {
+    "A0": 0.0,
+    "A1": 0.05,
+    "A2": 0.35,
+    "A3": 1.0
+  },
+  "action_risks": {
+    "A0": 0.0,
+    "A1": 0.05,
+    "A2": 0.30,
+    "A3": 0.60
+  }
+}

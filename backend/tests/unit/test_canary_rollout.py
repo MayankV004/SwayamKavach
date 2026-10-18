@@ -135,10 +135,74 @@ def test_canary_deployment_api_flow():
     assert "champion_release" in data
     assert "canary_weight" in data
 
-    # 2. Stage candidate
+    auth_headers = {"X-API-Key": "swayamkavach-control-plane-secret-key-v1"}
+
+    import hashlib
+    from datetime import UTC, datetime, timedelta
+
+    from swayamkavach.api.auth import generate_approval_signature
+    from swayamkavach.db.models import ApprovedEvaluationRecordDB
+
+    # Clean up any existing approval for isolated test run
+    clean_db = SessionLocal()
+    clean_db.query(ApprovedEvaluationRecordDB).filter(
+        ApprovedEvaluationRecordDB.candidate_release_id == "R2-candidate-api"
+    ).delete()
+    clean_db.commit()
+    clean_db.close()
+
+    # 2a. Unauthenticated stage request must return 401 Unauthorized
+    unauth_resp = client.post(
+        "/api/v1/deployment/canary/stage",
+        json={"candidate_release_id": "R2-candidate-api", "initial_weight": 0.05},
+    )
+    assert unauth_resp.status_code == 401
+
+    # 2b. Unapproved candidate request must return 403 Forbidden
+    unapproved_resp = client.post(
+        "/api/v1/deployment/canary/stage",
+        json={"candidate_release_id": "R2-candidate-api", "initial_weight": 0.05},
+        headers=auth_headers,
+    )
+    assert unapproved_resp.status_code == 403
+    assert "has not received cryptographic evaluation approval" in unapproved_resp.json()["detail"]
+
+    # 2c. Seed approved evaluation record with valid HMAC signature
+    from swayamkavach.db.models import ApprovedEvaluationRecordDB
+
+    now_dt = datetime.now(UTC)
+    exp_dt = now_dt + timedelta(hours=24)
+    exp_iso = exp_dt.isoformat()
+    cand_sha = hashlib.sha256(b"dummy-content").hexdigest()
+    sig = generate_approval_signature(
+        report_id="EVAL_API_TEST",
+        candidate_release_id="R2-candidate-api",
+        candidate_sha256=cand_sha,
+        operator_id="test_operator",
+        expires_at_iso=exp_iso,
+    )
+
+    db = SessionLocal()
+    rec = ApprovedEvaluationRecordDB(
+        report_id="EVAL_API_TEST",
+        candidate_release_id="R2-candidate-api",
+        champion_release_id="R1",
+        verdict="PASS",
+        candidate_sha256=cand_sha,
+        approval_hash=sig,
+        operator_id="test_operator",
+        expires_at=exp_dt,
+        created_at=now_dt,
+    )
+    db.merge(rec)
+    db.commit()
+    db.close()
+
+    # 2d. Stage approved candidate with valid credentials
     stage_resp = client.post(
         "/api/v1/deployment/canary/stage",
         json={"candidate_release_id": "R2-candidate-api", "initial_weight": 0.05},
+        headers=auth_headers,
     )
     assert stage_resp.status_code == 200
     staged_data = stage_resp.json()
@@ -146,7 +210,7 @@ def test_canary_deployment_api_flow():
     assert staged_data["canary_weight"] == 0.05
 
     # 3. Advance stage
-    adv_resp = client.post("/api/v1/deployment/canary/advance")
+    adv_resp = client.post("/api/v1/deployment/canary/advance", headers=auth_headers)
     assert adv_resp.status_code == 200
     adv_data = adv_resp.json()
     assert adv_data["canary_weight"] == 0.25
@@ -155,6 +219,7 @@ def test_canary_deployment_api_flow():
     rb_resp = client.post(
         "/api/v1/deployment/canary/rollback",
         json={"reason": "Manual operator abort from dashboard"},
+        headers=auth_headers,
     )
     assert rb_resp.status_code == 200
     rb_data = rb_resp.json()

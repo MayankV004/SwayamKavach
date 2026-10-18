@@ -220,19 +220,35 @@ class DamageCalculator:
         self,
         current_df: pd.DataFrame,
         scores: np.ndarray | Sequence[float],
-        y_true: Sequence[int] | np.ndarray | None = None,
+        y_true: Sequence[int | None] | np.ndarray | None = None,
         reference_df: pd.DataFrame | None = None,
         threshold: float | None = None,
         label_reliability: float = 0.95,
+        label_coverage: float | None = None,
         persistence_count: int = 1,
     ) -> DamageFingerprint:
-        """Assemble full 7D Damage Fingerprint F_t = [D_X, D_Y, D_B, Q, L, S, R]."""
+        """Assemble full 7D Damage Fingerprint F_t = [D_X, D_Y, D_B, Q, L, S, R].
+
+        Preserves aligned scores and nullable labels, and factors verified label
+        coverage into the label reliability score L.
+        """
         d_x = self.compute_distribution_drift(current_df, reference_df=reference_df)
         d_b = self.compute_boundary_damage(scores, threshold=threshold)
         d_y = self.compute_performance_damage(y_true, scores, threshold=threshold)
         q = self.compute_data_quality(current_df)
         s = int(len(current_df))
-        l_score = float(np.clip(round(label_reliability if y_true is not None else 0.0, 4), 0.0, 1.0))
+
+        # Compute verified label coverage if not explicitly provided
+        if y_true is not None and len(y_true) > 0:
+            if label_coverage is not None:
+                coverage = float(label_coverage)
+            else:
+                valid_count = sum(1 for y in y_true if y is not None and not pd.isna(y))
+                coverage = float(valid_count / len(y_true))
+            l_score = float(np.clip(round(label_reliability * coverage, 4), 0.0, 1.0))
+        else:
+            l_score = 0.0
+
         r = max(1, int(persistence_count))
 
         return DamageFingerprint(
@@ -244,3 +260,33 @@ class DamageCalculator:
             S=s,
             R=r,
         )
+
+
+def compute_fingerprint(
+    current_df: pd.DataFrame | None = None,
+    scores: np.ndarray | Sequence[float] | None = None,
+    y_true: Sequence[int | None] | np.ndarray | None = None,
+    reference_df: pd.DataFrame | None = None,
+    threshold: float | None = None,
+    label_reliability: float = 0.95,
+    label_coverage: float | None = None,
+    persistence_count: int = 1,
+    window_df: pd.DataFrame | None = None,
+    labels: Sequence[int | None] | np.ndarray | None = None,
+) -> DamageFingerprint:
+    """Convenience module function for computing 7D Damage Fingerprint."""
+    calc = DamageCalculator()
+    df = current_df if current_df is not None else (window_df if window_df is not None else pd.DataFrame())
+    lbls = y_true if y_true is not None else labels
+    scs = scores if scores is not None else []
+    return calc.compute_fingerprint(
+        current_df=df,
+        scores=scs,
+        y_true=lbls,
+        reference_df=reference_df,
+        threshold=threshold,
+        label_reliability=label_reliability,
+        label_coverage=label_coverage,
+        persistence_count=persistence_count,
+    )
+

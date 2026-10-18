@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from schemas.lifecycle import DamageFingerprint, RepairAction
+from swayamkavach.dari.policy_config import DARIPolicyConfig, get_policy_config
 
 logger = logging.getLogger("swayamkavach.dari.selector")
 
@@ -54,40 +55,49 @@ class DARISolver:
 
     def __init__(
         self,
-        q_min: float = 0.70,
-        s_min: int = 100,
-        l_min: float = 0.70,
-        r_min_for_a3: int = 2,
-        cost_weight: float = 0.25,
-        risk_weight: float = 0.20,
-        drift_threshold: float = 0.25,
-        boundary_threshold: float = 0.30,
-        severe_damage_threshold: float = 0.40,
+        config: DARIPolicyConfig | None = None,
+        q_min: float | None = None,
+        s_min: int | None = None,
+        s_min_retrain: int | None = None,
+        s_min_adapt: int | None = None,
+        l_min: float | None = None,
+        r_min_for_a3: int | None = None,
+        cost_weight: float | None = None,
+        risk_weight: float | None = None,
+        drift_threshold: float | None = None,
+        boundary_threshold: float | None = None,
+        severe_damage_threshold: float | None = None,
     ):
-        self.q_min = q_min
-        self.s_min = s_min
-        self.l_min = l_min
-        self.r_min_for_a3 = r_min_for_a3
-        self.lambda_cost = cost_weight
-        self.gamma_risk = risk_weight
-        self.drift_threshold = drift_threshold
-        self.boundary_threshold = boundary_threshold
-        self.severe_damage_threshold = severe_damage_threshold
+        base_cfg = config or get_policy_config()
+        self.config = base_cfg
+        self.policy_version = base_cfg.policy_version
+        self.q_min = q_min if q_min is not None else base_cfg.q_min
+        # s_min sets s_min_retrain for backward compatibility; default is 1000 from config
+        self.s_min_retrain = s_min_retrain if s_min_retrain is not None else (s_min if s_min is not None else base_cfg.s_min_retrain)
+        self.s_min_adapt = s_min_adapt if s_min_adapt is not None else base_cfg.s_min_adapt
+        self.s_min = self.s_min_retrain
+        self.l_min = l_min if l_min is not None else base_cfg.l_min
+        self.r_min_for_a3 = r_min_for_a3 if r_min_for_a3 is not None else base_cfg.r_min_for_a3
+        self.lambda_cost = cost_weight if cost_weight is not None else base_cfg.cost_weight
+        self.gamma_risk = risk_weight if risk_weight is not None else base_cfg.risk_weight
+        self.drift_threshold = drift_threshold if drift_threshold is not None else base_cfg.drift_threshold
+        self.boundary_threshold = boundary_threshold if boundary_threshold is not None else base_cfg.boundary_ambiguity_threshold
+        self.severe_damage_threshold = severe_damage_threshold if severe_damage_threshold is not None else base_cfg.severe_damage_threshold
 
         # Action nominal costs C(A_i)
         self.action_costs = {
-            RepairAction.A0: 0.0,
-            RepairAction.A1: 0.05,
-            RepairAction.A2: 0.35,
-            RepairAction.A3: 1.00,
+            RepairAction.A0: base_cfg.action_costs.get("A0", 0.0),
+            RepairAction.A1: base_cfg.action_costs.get("A1", 0.05),
+            RepairAction.A2: base_cfg.action_costs.get("A2", 0.35),
+            RepairAction.A3: base_cfg.action_costs.get("A3", 1.00),
         }
 
         # Action deployment risks G(A_i)
         self.action_risks = {
-            RepairAction.A0: 0.0,
-            RepairAction.A1: 0.05,
-            RepairAction.A2: 0.30,
-            RepairAction.A3: 0.60,
+            RepairAction.A0: base_cfg.action_risks.get("A0", 0.0),
+            RepairAction.A1: base_cfg.action_risks.get("A1", 0.05),
+            RepairAction.A2: base_cfg.action_risks.get("A2", 0.30),
+            RepairAction.A3: base_cfg.action_risks.get("A3", 0.60),
         }
 
     def filter_feasibility(
@@ -97,8 +107,20 @@ class DARISolver:
 
         Hard constraints are deterministic gates, never tradeable for utility.
         """
-        feasible: list[RepairAction] = [RepairAction.A0, RepairAction.A1]
+        feasible: list[RepairAction] = [RepairAction.A0]
         rejections: dict[str, str] = {}
+
+        # 0. Boundary Calibration (A1) feasibility check
+        # A1 is designed for boundary ambiguity (D_B).
+        # Severe covariate shift (D_X >= severe_damage_threshold) without boundary ambiguity
+        # cannot be resolved by threshold movement alone.
+        if fp.D_X >= self.severe_damage_threshold and fp.D_B < 0.20:
+            rejections[RepairAction.A1.value] = (
+                f"Severe covariate shift D_X={fp.D_X:.3f} >= {self.severe_damage_threshold:.3f} "
+                f"without commensurate boundary ambiguity (D_B={fp.D_B:.3f}) precludes threshold recalibration alone."
+            )
+        else:
+            feasible.append(RepairAction.A1)
 
         # 1. Ingestion quality constraint
         if fp.Q < self.q_min:
@@ -111,14 +133,18 @@ class DARISolver:
             return feasible, rejections
 
         # 2. Sample sufficiency constraint
-        if fp.S < self.s_min:
+        if fp.S < self.s_min_adapt:
             rejections[RepairAction.A2.value] = (
-                f"Sample count S={fp.S} < {self.s_min}. Insufficient window size for local adaptation."
+                f"Sample count S={fp.S} < {self.s_min_adapt}. Insufficient window size for local adaptation."
             )
             rejections[RepairAction.A3.value] = (
-                f"Sample count S={fp.S} < {self.s_min}. Insufficient window size for full retraining."
+                f"Sample count S={fp.S} < {self.s_min_retrain}. Insufficient window size for full retraining (Hard Gate: S >= {self.s_min_retrain})."
             )
             return feasible, rejections
+        elif fp.S < self.s_min_retrain:
+            rejections[RepairAction.A3.value] = (
+                f"Sample count S={fp.S} < {self.s_min_retrain}. Insufficient window size for full retraining (Hard Gate: S >= {self.s_min_retrain})."
+            )
 
         # 3. Label reliability & availability constraint
         if fp.D_Y is None or fp.L < self.l_min:
@@ -135,12 +161,13 @@ class DARISolver:
         feasible.append(RepairAction.A2)
 
         # 4. Persistence constraint for full retraining (A3)
-        if fp.R < self.r_min_for_a3:
-            rejections[RepairAction.A3.value] = (
-                f"Drift persistence R={fp.R} < {self.r_min_for_a3}. Transient shift: cooldown prevents retraining churn."
-            )
-        else:
-            feasible.append(RepairAction.A3)
+        if RepairAction.A3.value not in rejections:
+            if fp.R < self.r_min_for_a3:
+                rejections[RepairAction.A3.value] = (
+                    f"Drift persistence R={fp.R} < {self.r_min_for_a3}. Transient shift: cooldown prevents retraining churn."
+                )
+            else:
+                feasible.append(RepairAction.A3)
 
         return feasible, rejections
 
@@ -256,6 +283,7 @@ class DARISolver:
             rejection_reasons=rejections,
             utility_scores=utilities,
             explanation=explanation,
+            policy_version=self.policy_version,
         )
 
     def solve(self, fp: DamageFingerprint) -> SelectionResult:

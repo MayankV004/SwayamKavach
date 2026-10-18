@@ -107,3 +107,37 @@ class GroundTruthLabelRecordDB(Base):
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
     received_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), index=True)
 
+
+class WindowDamageHistoryDB(Base):
+    """Tracks historical window damage metrics for temporal persistence (R) calculation."""
+
+    __tablename__ = "window_damage_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    window_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    d_x: Mapped[float] = mapped_column(Float, nullable=False)
+    d_y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    d_b: Mapped[float] = mapped_column(Float, nullable=False)
+    q: Mapped[float] = mapped_column(Float, nullable=False)
+    l: Mapped[float] = mapped_column(Float, nullable=False)  # noqa: E741
+    s: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_anomalous: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    evaluated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), index=True)
+
+
+class ApprovedEvaluationRecordDB(Base):
+    """Cryptographically verifiable and persisted evaluation approval record."""
+
+    __tablename__ = "approved_evaluations"
+
+    report_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    candidate_release_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    champion_release_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    verdict: Mapped[str] = mapped_column(String(32), nullable=False)
+    candidate_sha256: Mapped[str] = mapped_column(String(128), nullable=False)
+    approval_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    operator_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+
+

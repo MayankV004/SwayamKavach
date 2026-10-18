@@ -1,6 +1,7 @@
 """SwayamKavach Core API Server."""
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -27,6 +28,12 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing SwayamKavach API and database schemas...")
     init_db()
     logger.info("Database initialized successfully.")
+
+    # Validate DARI policy configuration at startup
+    from swayamkavach.dari.policy_config import get_policy_config
+    cfg = get_policy_config()
+    logger.info("Loaded and validated DARI Policy %s (Q_min=%.2f, S_min=%d, L_min=%.2f, R_min=%d)",
+                cfg.policy_version, cfg.q_min, cfg.s_min_retrain, cfg.l_min, cfg.r_min_for_a3)
     yield
     logger.info("Shutting down SwayamKavach API.")
 
@@ -38,13 +45,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Cross-Origin Resource Sharing for Next.js frontend
+# Cross-Origin Resource Sharing: restricted to explicit frontend origins with credentials
+raw_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000",
+)
+allowed_origins = [orig.strip() for orig in raw_origins.split(",") if orig.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key"],
 )
 
 # Mount routes under /api/v1

@@ -40,3 +40,4 @@ class PredictionResponse(BaseModel):
     slot_id: str = Field(..., description="Responding serving slot")
     release_id: str = Field(..., description="Active loaded model release")
     execution_time_ms: float | None = Field(default=None, description="Inference latency in milliseconds")
+    inference_mode: str = Field(default="pipeline", description="Inference execution mode: pipeline or heuristic")

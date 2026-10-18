@@ -29,6 +29,7 @@ class CalibrationResult:
     f1: float
     samples_evaluated: int
     meets_constraints: bool
+    status: str = "SUCCESS"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -39,6 +40,7 @@ class CalibrationResult:
             "f1": self.f1,
             "samples_evaluated": self.samples_evaluated,
             "meets_constraints": self.meets_constraints,
+            "status": self.status,
         }
 
 
@@ -57,24 +59,27 @@ class ThresholdCalibrator:
 
     def calibrate(
         self,
-        y_true: Sequence[int] | np.ndarray,
-        scores: Sequence[float] | np.ndarray,
+        y_true: Sequence[int] | np.ndarray | None = None,
+        scores: Sequence[float] | np.ndarray = (),
         current_threshold: float = 0.42,
+        labels: Sequence[int] | np.ndarray | None = None,
     ) -> CalibrationResult:
         """Evaluate candidate thresholds on labelled samples to find optimal theta*."""
-        y_arr = np.asarray(y_true, dtype=int)
-        s_arr = np.asarray(scores, dtype=float)
+        actual_labels = y_true if y_true is not None else (labels if labels is not None else [])
+        y_arr = np.asarray(actual_labels, dtype=int) if len(actual_labels) > 0 else np.array([], dtype=int)
+        s_arr = np.asarray(scores, dtype=float) if len(scores) > 0 else np.array([], dtype=float)
 
         if len(y_arr) == 0 or len(s_arr) == 0:
-            logger.warning("Empty validation data passed to calibrator; keeping current threshold.")
+            logger.warning("Empty validation data passed to calibrator; returning INSUFFICIENT_DATA.")
             return CalibrationResult(
                 old_threshold=current_threshold,
                 new_threshold=current_threshold,
-                recall=1.0,
+                recall=0.0,
                 fpr=0.0,
-                f1=1.0,
+                f1=0.0,
                 samples_evaluated=0,
-                meets_constraints=True,
+                meets_constraints=False,
+                status="INSUFFICIENT_DATA",
             )
 
         attack_mask = (y_arr == 1)
@@ -84,15 +89,16 @@ class ThresholdCalibrator:
         n_normals = int(np.sum(normal_mask))
 
         if n_attacks == 0 or n_normals == 0:
-            logger.warning("Single-class sample passed to calibrator; keeping current threshold.")
+            logger.warning("Single-class sample passed to calibrator; returning SINGLE_CLASS_INSUFFICIENT.")
             return CalibrationResult(
                 old_threshold=current_threshold,
                 new_threshold=current_threshold,
-                recall=1.0,
+                recall=0.0,
                 fpr=0.0,
-                f1=1.0,
+                f1=0.0,
                 samples_evaluated=len(y_arr),
-                meets_constraints=True,
+                meets_constraints=False,
+                status="SINGLE_CLASS_INSUFFICIENT",
             )
 
         best_theta = current_threshold
@@ -128,6 +134,8 @@ class ThresholdCalibrator:
                     best_theta = float(theta)
                     best_metrics = (recall, fpr, f1)
 
+        status_str = "SUCCESS" if found_constrained else "NO_FEASIBLE_THRESHOLD"
+
         result = CalibrationResult(
             old_threshold=float(current_threshold),
             new_threshold=round(best_theta, 4),
@@ -136,6 +144,7 @@ class ThresholdCalibrator:
             f1=round(best_metrics[2], 4),
             samples_evaluated=len(y_arr),
             meets_constraints=found_constrained,
+            status=status_str,
         )
 
         logger.info(

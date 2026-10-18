@@ -10,6 +10,7 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 import pandas as pd
 from sqlalchemy import select
@@ -31,7 +32,7 @@ class MonitoringWindow:
     event_ids: list[str]
     features_df: pd.DataFrame
     scores: list[float]
-    y_true: list[int] | None
+    y_true: list[int | None] | None
     label_coverage: float
     label_reliability: float
 
@@ -39,8 +40,38 @@ class MonitoringWindow:
 class WindowSelector:
     """Selects sliding or tumbling windows from predicted flow events and delayed labels."""
 
-    def __init__(self, window_size: int = 1000):
+    def __init__(self, window_size: int = 1000, min_labeled_samples: int = 0):
         self.window_size = window_size
+        self.min_labeled_samples = min_labeled_samples
+
+    def build_window(
+        self,
+        events: list[dict[str, Any]],
+        labels: dict[str, int] | None = None,
+        reference_threshold: float = 0.42,
+    ) -> MonitoringWindow:
+        """Construct a MonitoringWindow directly from event dictionaries and optional labels."""
+        labels = labels or {}
+        event_ids = [e.get("event_id", f"ev-{i}") for i, e in enumerate(events)]
+        feature_rows = [dict(e.get("features", {})) for e in events]
+        scores = [float(e.get("score", 0.5)) for e in events]
+        y_true_list: list[int | None] = [labels.get(eid, None) for eid in event_ids]
+        labeled_count = sum(1 for y in y_true_list if y is not None)
+        coverage = float(round(labeled_count / len(events), 4)) if events else 0.0
+
+        now = datetime.now(UTC)
+        return MonitoringWindow(
+            window_id=f"W_synthetic_{len(events)}",
+            start_time=now,
+            end_time=now,
+            sample_count=len(events),
+            event_ids=event_ids,
+            features_df=pd.DataFrame(feature_rows),
+            scores=scores,
+            y_true=y_true_list if labeled_count > 0 else None,
+            label_coverage=coverage,
+            label_reliability=1.0 if labeled_count > 0 else 0.0,
+        )
 
     def select_latest_window(
         self,
@@ -111,15 +142,8 @@ class WindowSelector:
             else 0.0
         )
 
-        # y_true is only provided if at least some labels are present
-        y_true_clean: list[int] | None = None
-        if labelled_count > 0:
-            # We filter aligned pairs for evaluation
-            y_true_clean = [
-                label_map[e_id]
-                for e_id in event_ids
-                if e_id in label_map
-            ]
+        # y_true preserves 1-to-1 event alignment with scores, containing None for unlabelled events
+        y_true_aligned: list[int | None] | None = y_true_list if labelled_count > 0 else None
 
         start_time = events[0].event_time.replace(tzinfo=UTC) if events[0].event_time.tzinfo is None else events[0].event_time
         end_time = events[-1].event_time.replace(tzinfo=UTC) if events[-1].event_time.tzinfo is None else events[-1].event_time
@@ -133,7 +157,7 @@ class WindowSelector:
             event_ids=event_ids,
             features_df=features_df,
             scores=scores,
-            y_true=y_true_clean,
+            y_true=y_true_aligned,
             label_coverage=label_coverage,
             label_reliability=avg_confidence,
         )

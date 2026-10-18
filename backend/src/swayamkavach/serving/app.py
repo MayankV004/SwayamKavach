@@ -24,6 +24,7 @@ SLOT_ID = os.getenv("SLOT_ID", "A")
 RELEASE_ID = os.getenv("RELEASE_ID", "R1")
 MODEL_VERSION = os.getenv("MODEL_VERSION", "r1-sha-baseline-001")
 DECISION_THRESHOLD = float(os.getenv("DECISION_THRESHOLD", "0.50"))
+ALLOW_HEURISTIC_FALLBACK = os.getenv("ALLOW_HEURISTIC_FALLBACK", "false").lower() in ("true", "1", "yes")
 
 FEATURE_COLUMNS = [
     "duration",
@@ -73,13 +74,14 @@ def load_model_bundle(rel_id: str, threshold: float | None = None) -> bool:
             return True
         except Exception as e:
             logger.error(f"Failed to load bundle {b_file}: {e}")
-            _is_ready = True
+            _pipeline = None
+            _is_ready = ALLOW_HEURISTIC_FALLBACK
             return False
     else:
-        logger.warning(f"No release bundle found at {b_file}; serving in fallback mode.")
+        logger.warning(f"No release bundle found at {b_file}; model readiness failed.")
         RELEASE_ID = rel_id
         _pipeline = None
-        _is_ready = True
+        _is_ready = ALLOW_HEURISTIC_FALLBACK
         return False
 
 
@@ -99,11 +101,12 @@ def reload_slot_model(release_id: str | None = None, threshold: float | None = N
     target_rel = release_id or RELEASE_ID
     loaded = load_model_bundle(target_rel, threshold=threshold)
     return {
-        "status": "reloaded" if loaded else "fallback_active",
+        "status": "reloaded" if loaded else ("fallback_active" if _is_ready else "not_ready"),
         "slot_id": SLOT_ID,
         "release_id": RELEASE_ID,
         "model_version": MODEL_VERSION,
         "decision_threshold": DECISION_THRESHOLD,
+        "inference_mode": "pipeline" if _pipeline is not None else "heuristic",
     }
 
 
@@ -111,7 +114,11 @@ def reload_slot_model(release_id: str | None = None, threshold: float | None = N
 @app.get("/livez", status_code=status.HTTP_200_OK)
 def livez():
     """Liveness probe."""
-    return {"status": "alive", "slot": SLOT_ID}
+    return {
+        "status": "alive",
+        "slot": SLOT_ID,
+        "inference_mode": "pipeline" if _pipeline is not None else "heuristic",
+    }
 
 
 @app.get("/readyz", status_code=status.HTTP_200_OK)
@@ -119,13 +126,14 @@ def readyz():
     """Readiness probe verifying model is warmed and ready for traffic."""
     if not _is_ready:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Model warming in progress"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Model bundle not loaded / service not ready"
         )
     return {
         "status": "ready",
         "slot": SLOT_ID,
         "release_id": RELEASE_ID,
         "threshold": DECISION_THRESHOLD,
+        "inference_mode": "pipeline" if _pipeline is not None else "heuristic",
     }
 
 
@@ -138,6 +146,7 @@ def identity():
         "model_version": MODEL_VERSION,
         "decision_threshold": DECISION_THRESHOLD,
         "is_bundled_model": _pipeline is not None,
+        "inference_mode": "pipeline" if _pipeline is not None else "heuristic",
     }
 
 
@@ -198,5 +207,6 @@ def predict(payload: PredictionRequest):
         slot_id=SLOT_ID,
         release_id=RELEASE_ID,
         execution_time_ms=round(duration_ms, 2),
+        inference_mode="pipeline" if _pipeline is not None else "heuristic",
     )
 

@@ -199,6 +199,19 @@ def test_evaluation_approval_api_security_gates():
     )
     eval_module._latest_report = fail_report
 
+    # Unauthenticated request must return HTTP 401
+    resp_unauth = client.post(
+        "/api/v1/evaluations/approve",
+        json={
+            "report_id": "EVAL_R1_R2_FAIL_001",
+            "approval_hash": "hash_fail_123",
+            "operator_id": "auditor",
+        },
+    )
+    assert resp_unauth.status_code == 401
+
+    auth_headers = {"X-API-Key": "swayamkavach-control-plane-secret-key-v1"}
+
     resp_fail = client.post(
         "/api/v1/evaluations/approve",
         json={
@@ -206,6 +219,7 @@ def test_evaluation_approval_api_security_gates():
             "approval_hash": "hash_fail_123",
             "operator_id": "auditor",
         },
+        headers=auth_headers,
     )
     assert resp_fail.status_code == 403
     assert "Cannot approve candidate with verdict FAIL" in resp_fail.json()["detail"]
@@ -235,6 +249,7 @@ def test_evaluation_approval_api_security_gates():
             "approval_hash": "hash_pass_456",
             "operator_id": "senior_engineer",
         },
+        headers=auth_headers,
     )
     assert resp_pass.status_code == 200
     data = resp_pass.json()
@@ -242,3 +257,4 @@ def test_evaluation_approval_api_security_gates():
     assert data["candidate_release"] == "R2-candidate"
     assert data["candidate_slot"] == "B"
     assert data["canary_weight"] == 0.05
+    assert "approval_signature" in data

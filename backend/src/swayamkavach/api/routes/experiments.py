@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from swayamkavach.db.models import LifecycleStateRecordDB
 from swayamkavach.db.session import get_db
-from swayamkavach.experiments.benchmark import BaselineBenchmarkHarness
+from swayamkavach.experiments.benchmark import BaselineBenchmarkHarness, EmpiricalBenchmarkRunner
 from swayamkavach.experiments.scenarios import ReplayScenarioRunner, ScenarioType
 
 logger = logging.getLogger("swayamkavach.api.experiments")
@@ -84,12 +84,17 @@ def run_scenario(
 @router.get("/benchmark")
 def get_benchmark(
     n_windows: int = Query(default=10, ge=3, le=50, description="Number of stream windows to evaluate"),
+    mode: str = Query(default="simulation", description="Benchmark mode: 'simulation' or 'empirical'"),
 ) -> dict[str, Any]:
     """Benchmark DARI against Static Champion, Periodic Retraining, and Retrain-All."""
     try:
-        harness = BaselineBenchmarkHarness()
-        report = harness.run_benchmark(n_windows=n_windows)
+        if mode == "empirical":
+            runner = EmpiricalBenchmarkRunner()
+            report = runner.run_empirical_benchmark(n_windows=min(n_windows, 10))
+        else:
+            harness = BaselineBenchmarkHarness()
+            report = harness.run_benchmark(n_windows=n_windows)
         return report.to_dict()
     except Exception as e:
-        logger.error("Error running baseline benchmark: %s", e, exc_info=True)
+        logger.error("Error running benchmark (mode=%s): %s", mode, e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
