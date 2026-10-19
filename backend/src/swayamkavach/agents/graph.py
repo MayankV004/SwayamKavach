@@ -62,7 +62,9 @@ def monitor_node(state: DARIState) -> dict[str, Any]:
     # Query DB for latest window
     db = SessionLocal()
     try:
-        window: MonitoringWindow | None = WindowSelector().select_latest_window(db, window_size=500)
+        import os
+        window_size = int(os.getenv("MONITORING_WINDOW_SIZE", "1000"))
+        window: MonitoringWindow | None = WindowSelector().select_latest_window(db, window_size=window_size)
         if window is None or len(window.features_df) == 0:
             audit.append("No active predicted events in window. Defaulting to nominal.")
             return {
@@ -204,15 +206,29 @@ def calibrate_node(state: DARIState) -> dict[str, Any]:
         audit.append(
             f"A1 Calibration complete: theta*={res.new_threshold:.3f} (Recall={res.recall:.4f}, FPR={res.fpr:.4f})"
         )
-        # Propagate hot threshold update to active model serving runtime
+        # Propagate hot threshold update to active model serving runtime with confirmation
+        verified_slots: list[str] = []
         try:
             import httpx
-            with httpx.Client(timeout=1.0) as client:
-                client.post("http://localhost:8001/reload", params={"threshold": res.new_threshold})
-                client.post("http://localhost:8002/reload", params={"threshold": res.new_threshold})
-            audit.append(f"Successfully activated calibrated threshold theta*={res.new_threshold:.3f} on serving slots.")
+            with httpx.Client(timeout=2.0) as client:
+                for port, slot_name in [(8001, "Slot A"), (8002, "Slot B")]:
+                    try:
+                        reload_resp = client.post(f"http://localhost:{port}/reload", params={"threshold": res.new_threshold})
+                        if reload_resp.status_code == 200:
+                            probe_resp = client.get(f"http://localhost:{port}/readyz")
+                            if probe_resp.status_code == 200:
+                                probe_data = probe_resp.json()
+                                if abs(float(probe_data.get("threshold", 0.0)) - float(res.new_threshold)) < 0.01:
+                                    verified_slots.append(slot_name)
+                    except Exception as slot_exc:
+                        logger.debug("Serving %s on port %s unreachable: %s", slot_name, port, slot_exc)
+
+            if verified_slots:
+                audit.append(f"Activated & verified calibrated threshold theta*={res.new_threshold:.3f} on {', '.join(verified_slots)}.")
+            else:
+                audit.append(f"Serving slots offline; recorded calibrated threshold theta*={res.new_threshold:.3f} in state (activation unconfirmed).")
         except Exception:
-            audit.append(f"Serving slot unreachable; recorded calibrated threshold theta*={res.new_threshold:.3f} in state.")
+            audit.append(f"Serving slot unreachable; recorded calibrated threshold theta*={res.new_threshold:.3f} in state (activation unconfirmed).")
     else:
         audit.append(
             f"A1 Calibration deferred ({res.status}): security constraints not satisfied or evidence missing. Current threshold retained."
@@ -248,7 +264,7 @@ def adapt_node(state: DARIState) -> dict[str, Any]:
     return {
         "adaptation_result": res.to_dict(),
         "audit_trail": audit,
-        "status": "adapted" if res.status == "success" else "adaptation_deferred",
+        "status": "adapted" if str(res.status).upper() == "SUCCESS" else "adaptation_deferred",
     }
 
 
@@ -268,7 +284,7 @@ def retrain_node(state: DARIState) -> dict[str, Any]:
     return {
         "retraining_result": res.to_dict(),
         "audit_trail": audit,
-        "status": "retrained" if res.status == "success" else "retrain_failed",
+        "status": "retrained" if str(res.status).upper() == "SUCCESS" else "retrain_failed",
     }
 
 

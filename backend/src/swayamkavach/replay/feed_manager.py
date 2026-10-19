@@ -152,7 +152,8 @@ class ReplayStreamWorker:
                 )
 
                 try:
-                    resp = requests.post(self.api_url, json=req.model_dump(mode="json"), timeout=4.0)
+                    auth_headers = {"X-API-Key": os.getenv("CONTROL_PLANE_API_KEY", "swayamkavach-control-plane-secret-key-v1")}
+                    resp = requests.post(self.api_url, json=req.model_dump(mode="json"), headers=auth_headers, timeout=4.0)
                     if resp.status_code == 202:
                         self.batches_sent += 1
                         self.events_sent += len(events)
@@ -315,7 +316,8 @@ class LiveSnifferWorker:
                 events=events,
             )
             try:
-                resp = requests.post(self.api_url, json=req.model_dump(mode="json"), timeout=4.0)
+                auth_headers = {"X-API-Key": os.getenv("CONTROL_PLANE_API_KEY", "swayamkavach-control-plane-secret-key-v1")}
+                resp = requests.post(self.api_url, json=req.model_dump(mode="json"), headers=auth_headers, timeout=4.0)
                 if resp.status_code == 202:
                     self.flows_ingested += len(events)
             except Exception as e:

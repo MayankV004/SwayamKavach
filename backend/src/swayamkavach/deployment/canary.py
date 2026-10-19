@@ -10,6 +10,7 @@ Implements Phase 7:
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -164,10 +165,10 @@ class CanaryController:
                 if data.get("inference_mode") == "heuristic":
                     return False, f"Candidate slot {candidate_slot} is running in unapproved heuristic mode"
         except ImportError:
-            pass
+            return False, "httpx library required for candidate health probe"
         except Exception as exc:
-            # If server is not running on port (e.g. offline unit testing), log debug and continue
-            logger.debug("Candidate slot probe on port %s: %s", cand_port, exc)
+            logger.error("Candidate slot probe failed on port %s: %s", cand_port, exc)
+            return False, f"Candidate slot {candidate_slot} probe failed: {exc}"
 
         # 2. Check candidate predictions vs ground truth labels if available
         labeled_preds = (
@@ -177,7 +178,15 @@ class CanaryController:
             .all()
         )
 
-        if len(labeled_preds) >= 10:
+        min_samples = int(os.getenv("MIN_CANARY_EVAL_SAMPLES", "15"))
+        if 0 < len(labeled_preds) < min_samples:
+            return (
+                False,
+                f"Candidate evaluation sample insufficient: {len(labeled_preds)} labeled predictions observed, "
+                f"minimum required for statistical safety verification is {min_samples}",
+            )
+
+        if len(labeled_preds) >= min_samples:
             attacks = [p for p in labeled_preds if p[1] == 1]
             if attacks:
                 recall = sum(1 for p in attacks if p[0] == 1) / len(attacks)

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useDashboard } from "@/context/DashboardContext";
 import { MetricsOverview } from "@/components/dashboard/MetricsOverview";
 import { DamageFingerprintCard } from "@/components/dashboard/DamageFingerprintCard";
+import { DARILifecycleStepper } from "@/components/dashboard/DARILifecycleStepper";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +29,8 @@ export default function OverviewPage() {
     effectiveFingerprint,
     effectiveAction,
     scenarioResult,
+    executeScenario,
+    runningScenario,
     clearScenario,
     resetLifecycle,
     alerts,
@@ -324,6 +327,150 @@ export default function OverviewPage() {
           </div>
         </div>
       </div>
+
+      {/* 1-CLICK DARI INVARIANT DEMO PRESETS BAR */}
+      <div className="rounded-xl border border-zinc-200/90 bg-white p-5 shadow-xs space-y-3.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-zinc-100">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-5 w-5 items-center justify-center rounded-md bg-emerald-600 text-[11px] font-bold text-white shadow-xs">
+              <Zap className="h-3 w-3 fill-current" />
+            </span>
+            <div>
+              <h3 className="text-sm font-bold text-zinc-950">
+                1-Click Project Demonstration Presets
+              </h3>
+              <p className="text-xs text-zinc-500">
+                Trigger live DARI self-healing scenarios to demonstrate mathematical guarantees and invariants
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {scenarioResult && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearScenario}
+                className="text-xs h-7.5 px-2.5 border-zinc-200 text-zinc-700 hover:bg-zinc-100"
+              >
+                Clear Demo
+              </Button>
+            )}
+            <Link
+              href="/scenarios"
+              className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 inline-flex items-center gap-1"
+            >
+              <span>Simulator</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          <button
+            onClick={() => executeScenario("nominal")}
+            disabled={runningScenario}
+            className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+              scenarioResult?.scenario === "nominal"
+                ? "border-emerald-600 bg-emerald-50 text-emerald-950 ring-1 ring-emerald-600 shadow-xs"
+                : "border-zinc-200/80 bg-zinc-50/70 hover:bg-white hover:border-zinc-300 text-zinc-900"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold">A0 Baseline</span>
+              <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.2 rounded">Drift</span>
+            </div>
+            <p className="text-[11px] text-zinc-500 leading-tight">Covariate drift alone (Zero Retraining)</p>
+          </button>
+
+          <button
+            onClick={() => executeScenario("boundary_shift")}
+            disabled={runningScenario}
+            className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+              scenarioResult?.scenario === "boundary_shift"
+                ? "border-blue-600 bg-blue-50 text-blue-950 ring-1 ring-blue-600 shadow-xs"
+                : "border-zinc-200/80 bg-zinc-50/70 hover:bg-white hover:border-zinc-300 text-zinc-900"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold">A1 Calibrate</span>
+              <span className="text-[10px] font-semibold text-blue-700 bg-blue-100/80 px-1.5 py-0.2 rounded">0.02s</span>
+            </div>
+            <p className="text-[11px] text-zinc-500 leading-tight">Tune threshold tau* (Sub-second)</p>
+          </button>
+
+          <button
+            onClick={() => executeScenario("localized_cluster")}
+            disabled={runningScenario}
+            className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+              scenarioResult?.scenario === "localized_cluster"
+                ? "border-amber-600 bg-amber-50 text-amber-950 ring-1 ring-amber-600 shadow-xs"
+                : "border-zinc-200/80 bg-zinc-50/70 hover:bg-white hover:border-zinc-300 text-zinc-900"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold">A2 Cluster</span>
+              <span className="text-[10px] font-semibold text-amber-700 bg-amber-100/80 px-1.5 py-0.2 rounded">Local</span>
+            </div>
+            <p className="text-[11px] text-zinc-500 leading-tight">Targeted subspace adaptation</p>
+          </button>
+
+          <button
+            onClick={() => executeScenario("severe_attack")}
+            disabled={runningScenario}
+            className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+              scenarioResult?.scenario === "severe_attack"
+                ? "border-red-600 bg-red-50 text-red-950 ring-1 ring-red-600 shadow-xs"
+                : "border-zinc-200/80 bg-zinc-50/70 hover:bg-white hover:border-zinc-300 text-zinc-900"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold">A3 Retrain</span>
+              <span className="text-[10px] font-semibold text-red-700 bg-red-100/80 px-1.5 py-0.2 rounded">Full R2</span>
+            </div>
+            <p className="text-[11px] text-zinc-500 leading-tight">Severe breakdown (R=3, S=2500)</p>
+          </button>
+
+          <button
+            onClick={() => executeScenario("faulty_candidate_rejection")}
+            disabled={runningScenario}
+            className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+              scenarioResult?.scenario === "faulty_candidate_rejection"
+                ? "border-purple-600 bg-purple-50 text-purple-950 ring-1 ring-purple-600 shadow-xs"
+                : "border-zinc-200/80 bg-zinc-50/70 hover:bg-white hover:border-zinc-300 text-zinc-900"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold">Gate Reject</span>
+              <span className="text-[10px] font-semibold text-purple-700 bg-purple-100/80 px-1.5 py-0.2 rounded">Safety</span>
+            </div>
+            <p className="text-[11px] text-zinc-500 leading-tight">McNemar test blocks candidate</p>
+          </button>
+
+          <button
+            onClick={() => executeScenario("canary_watchdog_rollback")}
+            disabled={runningScenario}
+            className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+              scenarioResult?.scenario === "canary_watchdog_rollback"
+                ? "border-rose-600 bg-rose-50 text-rose-950 ring-1 ring-rose-600 shadow-xs"
+                : "border-zinc-200/80 bg-zinc-50/70 hover:bg-white hover:border-zinc-300 text-zinc-900"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold">Canary Breach</span>
+              <span className="text-[10px] font-semibold text-rose-700 bg-rose-100/80 px-1.5 py-0.2 rounded">Rollback</span>
+            </div>
+            <p className="text-[11px] text-zinc-500 leading-tight">Instant warm reversion to Slot A</p>
+          </button>
+        </div>
+      </div>
+
+      {/* 7-STAGE DARI LIFECYCLE CLOSED LOOP STEPPER */}
+      <DARILifecycleStepper
+        lifecycle={lifecycle}
+        fingerprint={effectiveFingerprint}
+        chosenAction={effectiveAction}
+        scenarioResult={scenarioResult}
+      />
 
       {/* SECTION 01: High-Level Executive KPI Grid with Big Numbers */}
       <MetricsOverview

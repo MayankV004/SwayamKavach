@@ -124,6 +124,25 @@ def test_persistence_tracker_consecutive_increments_and_resets(setup_clean_db):
     assert r5 == 1
 
 
+def test_persistence_tracker_idempotency_by_window_id(setup_clean_db):
+    """Verify repeatedly recording the same window_id does not inflate persistence R."""
+    db = setup_clean_db
+    tracker = PersistenceTracker()
+
+    # Window 1 recorded 5 times consecutively (e.g. repeated lifecycle poll)
+    for _ in range(5):
+        r = tracker.record_window(db, window_id="win-1", d_x=0.30, d_b=0.10, q=0.98, l=0.95, s=200, is_anomalous=True)
+        assert r == 1  # Must NOT inflate to 2, 3, 4, 5!
+
+    # Only when a distinct new window win-2 is observed does R become 2
+    r2 = tracker.record_window(db, window_id="win-2", d_x=0.35, d_b=0.12, q=0.98, l=0.95, s=200, is_anomalous=True)
+    assert r2 == 2
+
+    # Polling win-2 again does NOT advance R to 3
+    r2_repeat = tracker.record_window(db, window_id="win-2", d_x=0.35, d_b=0.12, q=0.98, l=0.95, s=200, is_anomalous=True)
+    assert r2_repeat == 2
+
+
 def test_a3_requires_persistence_r_at_least_2():
     """Verify DARI solver rejects A3 full retraining when R=1 (transient drift), selecting A0 or lowest feasible."""
     policy = DARIPolicyConfig(s_min_retrain=1000)
@@ -269,8 +288,26 @@ def test_model_serving_readiness_fails_when_bundle_missing():
 # Canary Progression Enforced Health Gate Tests
 # --------------------------------------------------------------------------
 
-def test_canary_advance_stage_blocked_on_health_gate_failure(setup_clean_db):
+def test_canary_advance_stage_blocked_on_health_gate_failure(setup_clean_db, monkeypatch):
     """Verify advance_stage executes immediate warm rollback if candidate violates SLA recall."""
+    from unittest.mock import MagicMock
+
+    mock_resp_ready = MagicMock()
+    mock_resp_ready.status_code = 200
+    mock_resp_ready.json.return_value = {"status": "ready", "is_ready": True, "inference_mode": "pipeline"}
+
+    class MockHttpxClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def get(self, url, **kwargs):
+            return mock_resp_ready
+
+    monkeypatch.setattr("httpx.Client", MockHttpxClient)
+
     db = setup_clean_db
     controller = CanaryController()
 
@@ -317,6 +354,43 @@ def test_canary_advance_stage_blocked_on_health_gate_failure(setup_clean_db):
         controller.advance_stage(db)
 
     # Verify rollback state
+    state = controller.get_state(db)
+    assert state.candidate_release is None
+    assert state.canary_weight == 0.0
+    assert "ROLLED_BACK" in state.last_reason
+
+
+def test_canary_probe_connection_failure_fails_closed(setup_clean_db, monkeypatch):
+    """Verify probe connection errors fail closed and trigger immediate warm rollback."""
+    class MockFailingClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def get(self, url, **kwargs):
+            raise ConnectionRefusedError("[Errno 111] Connection refused")
+
+    monkeypatch.setattr("httpx.Client", MockFailingClient)
+
+    db = setup_clean_db
+    controller = CanaryController()
+
+    rec = LifecycleStateRecordDB(
+        id=1,
+        champion_release="R1",
+        active_slot="A",
+        candidate_release="R2-unreachable",
+        candidate_slot="B",
+        canary_weight=0.05,
+    )
+    db.merge(rec)
+    db.commit()
+
+    with pytest.raises(ValueError, match="Canary progression blocked: Candidate slot B probe failed"):
+        controller.advance_stage(db)
+
     state = controller.get_state(db)
     assert state.candidate_release is None
     assert state.canary_weight == 0.0
@@ -371,3 +445,89 @@ def test_empirical_benchmark_runner_executes_on_real_dataset():
     assert "periodic_retraining" in report.results
     assert "retrain_all" in report.results
     assert report.results["dari"].cumulative_recall >= 0.0
+
+
+# --------------------------------------------------------------------------
+# Sensitive Endpoint Authentication and Authorization Tests
+# --------------------------------------------------------------------------
+
+def test_unauthenticated_sensitive_endpoints_rejected_401():
+    """Verify sensitive mutation routes reject requests lacking control-plane credentials."""
+    from starlette.testclient import TestClient
+    from swayamkavach.api.main import app
+
+    unauth_client = TestClient(app)
+
+    # 1. Reset lifecycle
+    resp_reset = unauth_client.post("/api/v1/lifecycle/reset")
+    assert resp_reset.status_code == 401
+    assert "Missing or invalid control-plane authorization credential" in resp_reset.json()["detail"]
+
+    # 2. Ingest flow events batch
+    resp_ingest = unauth_client.post(
+        "/api/v1/ingestion/batches",
+        json={"batch_id": "b1", "sensor_id": "s1", "schema_version": "v1", "extractor_id": "e1", "events": []},
+    )
+    assert resp_ingest.status_code == 401
+
+    # 3. Ingest labels
+    resp_labels = unauth_client.post(
+        "/api/v1/labels",
+        json={"batch_id": "b1", "labels": []},
+    )
+    assert resp_labels.status_code == 401
+
+    # 4. Compare models
+    resp_compare = unauth_client.post(
+        "/api/v1/evaluations/compare",
+        json={"candidate_release_id": "R2", "champion_release_id": "R1"},
+    )
+    assert resp_compare.status_code == 401
+
+
+def test_production_env_blocks_default_dev_secrets(monkeypatch):
+    """Verify server rejects default dev credentials when ENVIRONMENT=production."""
+    import importlib
+    import os
+    import swayamkavach.api.auth as auth_mod
+
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.delenv("CONTROL_PLANE_API_KEY", raising=False)
+    monkeypatch.delenv("CONTROL_PLANE_SECRET_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="Production security breach"):
+        importlib.reload(auth_mod)
+
+    # Clean up environment reload
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    importlib.reload(auth_mod)
+
+
+def test_model_comparator_missing_labels_does_not_convert_to_benign():
+    """Verify ModelComparator does not silently convert missing/NaN labels to benign class 0."""
+    from unittest.mock import MagicMock
+    from swayamkavach.evaluation.compare import ModelComparator, EvaluationVerdict
+
+    comparator = ModelComparator(min_samples_for_pass=10)
+
+    # DataFrame with 15 rows: only 4 validly labeled rows (2 attacks, 2 normal), 11 NaN labels
+    val_df = pd.DataFrame({
+        "duration": [1.0] * 15,
+        "src_bytes": [100] * 15,
+        "label": [1, 0, 1, 0] + [np.nan] * 11,
+        "type": ["ddos", "normal", "ddos", "normal"] + [np.nan] * 11,
+    })
+
+    champ_mock = MagicMock()
+    cand_mock = MagicMock()
+
+    # Even though total rows=15, valid labeled samples=4 < min_samples_for_pass=10.
+    # It must return INCONCLUSIVE rather than treating the 11 NaNs as class 0!
+    report = comparator.compare(
+        champion_pipeline=champ_mock,
+        candidate_pipeline=cand_mock,
+        val_df=val_df,
+    )
+    assert report.verdict == EvaluationVerdict.INCONCLUSIVE
+    assert "missing/invalid labels excluded" in report.rejection_reasons[0]
+    assert report.evaluated_samples == 4  # Valid labeled samples count, NOT 15!

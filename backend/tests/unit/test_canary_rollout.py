@@ -176,7 +176,7 @@ def test_canary_deployment_api_flow():
     # Clean up any existing approval for isolated test run
     clean_db = SessionLocal()
     clean_db.query(ApprovedEvaluationRecordDB).filter(
-        ApprovedEvaluationRecordDB.candidate_release_id == "R2-candidate-api"
+        ApprovedEvaluationRecordDB.candidate_release_id == "R2"
     ).delete()
     clean_db.commit()
     clean_db.close()
@@ -184,14 +184,14 @@ def test_canary_deployment_api_flow():
     # 2a. Unauthenticated stage request must return 401 Unauthorized
     unauth_resp = client.post(
         "/api/v1/deployment/canary/stage",
-        json={"candidate_release_id": "R2-candidate-api", "initial_weight": 0.05},
+        json={"candidate_release_id": "R2", "initial_weight": 0.05},
     )
     assert unauth_resp.status_code == 401
 
     # 2b. Unapproved candidate request must return 403 Forbidden
     unapproved_resp = client.post(
         "/api/v1/deployment/canary/stage",
-        json={"candidate_release_id": "R2-candidate-api", "initial_weight": 0.05},
+        json={"candidate_release_id": "R2", "initial_weight": 0.05},
         headers=auth_headers,
     )
     assert unapproved_resp.status_code == 403
@@ -203,10 +203,10 @@ def test_canary_deployment_api_flow():
     now_dt = datetime.now(UTC)
     exp_dt = now_dt + timedelta(hours=24)
     exp_iso = exp_dt.isoformat()
-    cand_sha = hashlib.sha256(b"dummy-content").hexdigest()
+    cand_sha = "3639259c6fcc97ab90b13384fc9d44ce81cad8a34a0d9fcd3eaffab7fe1e6f39"
     sig = generate_approval_signature(
         report_id="EVAL_API_TEST",
-        candidate_release_id="R2-candidate-api",
+        candidate_release_id="R2",
         candidate_sha256=cand_sha,
         operator_id="test_operator",
         expires_at_iso=exp_iso,
@@ -215,7 +215,7 @@ def test_canary_deployment_api_flow():
     db = SessionLocal()
     rec = ApprovedEvaluationRecordDB(
         report_id="EVAL_API_TEST",
-        candidate_release_id="R2-candidate-api",
+        candidate_release_id="R2",
         champion_release_id="R1",
         verdict="PASS",
         candidate_sha256=cand_sha,
@@ -231,12 +231,12 @@ def test_canary_deployment_api_flow():
     # 2d. Stage approved candidate with valid credentials
     stage_resp = client.post(
         "/api/v1/deployment/canary/stage",
-        json={"candidate_release_id": "R2-candidate-api", "initial_weight": 0.05},
+        json={"candidate_release_id": "R2", "initial_weight": 0.05},
         headers=auth_headers,
     )
     assert stage_resp.status_code == 200
     staged_data = stage_resp.json()
-    assert staged_data["candidate_release"] == "R2-candidate-api"
+    assert staged_data["candidate_release"] == "R2"
     assert staged_data["canary_weight"] == 0.05
 
     # 3. Advance stage

@@ -127,7 +127,7 @@ def test_damage_calculator_unlabelled_window_invariant():
 def test_delayed_label_ingestion_api():
     """Verify delayed label ingestion API (POST /api/v1/labels) and idempotency."""
     init_db()
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "swayamkavach-control-plane-secret-key-v1"})
     import uuid
 
     uid = uuid.uuid4().hex[:6]
@@ -231,7 +231,7 @@ def test_monitoring_window_selector_flow():
     db.commit()
 
     # Now ingest label for event 1
-    client = TestClient(app)
+    client = TestClient(app, headers={"X-API-Key": "swayamkavach-control-plane-secret-key-v1"})
     ev_first = f"test_window_{uid}_ev_001"
     client.post(
         "/api/v1/labels",

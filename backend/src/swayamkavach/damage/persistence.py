@@ -53,6 +53,33 @@ class PersistenceTracker:
             return True
         return False
 
+    def _compute_distinct_persistence(self, db: Session) -> int:
+        """Calculate consecutive anomalous windows across distinct windows in reverse chronological order."""
+        stmt = (
+            select(WindowDamageHistoryDB)
+            .order_by(desc(WindowDamageHistoryDB.evaluated_at), desc(WindowDamageHistoryDB.id))
+            .limit(100)
+        )
+        records = db.execute(stmt).scalars().all()
+        seen_windows: set[str] = set()
+        distinct_windows: list[WindowDamageHistoryDB] = []
+        for r in records:
+            if r.window_id not in seen_windows:
+                seen_windows.add(r.window_id)
+                distinct_windows.append(r)
+
+        if not distinct_windows or not distinct_windows[0].is_anomalous:
+            return 1
+
+        consecutive_anomalous = 0
+        for w in distinct_windows:
+            if w.is_anomalous:
+                consecutive_anomalous += 1
+            else:
+                break
+
+        return max(1, consecutive_anomalous)
+
     def record_and_compute_persistence(
         self,
         db: Session,
@@ -65,44 +92,41 @@ class PersistenceTracker:
         s: int,
         is_anom: bool | None = None,
     ) -> int:
-        """Persist window damage record and return the current consecutive persistence count R."""
+        """Persist window damage record idempotently and return current consecutive persistence count R."""
         if is_anom is None:
             is_anom = self.is_anomalous(d_x=d_x, d_y=d_y, d_b=d_b)
 
-        record = WindowDamageHistoryDB(
-            window_id=window_id,
-            d_x=float(d_x),
-            d_y=float(d_y) if d_y is not None else None,
-            d_b=float(d_b),
-            q=float(q),
-            l=float(l),
-            s=int(s),
-            is_anomalous=bool(is_anom),
-            evaluated_at=datetime.now(UTC),
+        existing = (
+            db.query(WindowDamageHistoryDB)
+            .filter(WindowDamageHistoryDB.window_id == window_id)
+            .first()
         )
-        db.add(record)
-        db.commit()
+        if existing is not None:
+            existing.d_x = float(d_x)
+            existing.d_y = float(d_y) if d_y is not None else None
+            existing.d_b = float(d_b)
+            existing.q = float(q)
+            existing.l = float(l)
+            existing.s = int(s)
+            existing.is_anomalous = bool(is_anom)
+            existing.evaluated_at = datetime.now(UTC)
+            db.commit()
+        else:
+            record = WindowDamageHistoryDB(
+                window_id=window_id,
+                d_x=float(d_x),
+                d_y=float(d_y) if d_y is not None else None,
+                d_b=float(d_b),
+                q=float(q),
+                l=float(l),
+                s=int(s),
+                is_anomalous=bool(is_anom),
+                evaluated_at=datetime.now(UTC),
+            )
+            db.add(record)
+            db.commit()
 
-        # Query recent history in reverse chronological order
-        stmt = (
-            select(WindowDamageHistoryDB.is_anomalous)
-            .order_by(desc(WindowDamageHistoryDB.id))
-            .limit(50)
-        )
-        history = db.execute(stmt).scalars().all()
-
-        if not history or not history[0]:
-            # Current window is nominal
-            return 1
-
-        consecutive_anomalous = 0
-        for anom in history:
-            if anom:
-                consecutive_anomalous += 1
-            else:
-                break
-
-        r_count = max(1, consecutive_anomalous)
+        r_count = self._compute_distinct_persistence(db)
         logger.info(
             "Window %s anomaly=%s -> Persistent consecutive damage count R=%d",
             window_id,
@@ -138,24 +162,7 @@ class PersistenceTracker:
 
     def get_current_persistence(self, db: Session) -> int:
         """Query current persistence count R without inserting a new record."""
-        stmt = (
-            select(WindowDamageHistoryDB.is_anomalous)
-            .order_by(desc(WindowDamageHistoryDB.id))
-            .limit(50)
-        )
-        history = db.execute(stmt).scalars().all()
-
-        if not history or not history[0]:
-            return 1
-
-        consecutive_anomalous = 0
-        for anom in history:
-            if anom:
-                consecutive_anomalous += 1
-            else:
-                break
-
-        return max(1, consecutive_anomalous)
+        return self._compute_distinct_persistence(db)
 
     def clear_history(self, db: Session) -> None:
         """Purge window damage history (e.g. on reset)."""

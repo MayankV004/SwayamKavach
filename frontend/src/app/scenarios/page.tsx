@@ -3,12 +3,14 @@
 import React from "react";
 import { useDashboard } from "@/context/DashboardContext";
 import { ScenarioInjectionCard } from "@/components/dashboard/ScenarioInjectionCard";
+import { DARILifecycleStepper } from "@/components/dashboard/DARILifecycleStepper";
 import { DamageFingerprintCard } from "@/components/dashboard/DamageFingerprintCard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Activity, ShieldCheck } from "lucide-react";
 
 export default function ScenariosPage() {
   const {
+    lifecycle,
     runningScenario,
     scenarioResult,
     executeScenario,
@@ -19,6 +21,14 @@ export default function ScenariosPage() {
 
   return (
     <div className="space-y-6">
+      {/* 7-Stage End-to-End Pipeline Stepper */}
+      <DARILifecycleStepper
+        lifecycle={lifecycle}
+        fingerprint={effectiveFingerprint}
+        chosenAction={effectiveAction}
+        scenarioResult={scenarioResult}
+      />
+
       {/* Simulation Engine and Scenario Result */}
       <ScenarioInjectionCard
         runningScenario={runningScenario}

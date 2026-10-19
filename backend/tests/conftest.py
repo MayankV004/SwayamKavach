@@ -48,6 +48,38 @@ def client(db_session):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
+    with TestClient(app, headers={"X-API-Key": "swayamkavach-control-plane-secret-key-v1"}) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def mock_serving_slot_http(monkeypatch):
+    """Hermetic test isolation: mock candidate slot readiness probe and reload endpoint."""
+    from unittest.mock import MagicMock
+
+    mock_resp_ready = MagicMock()
+    mock_resp_ready.status_code = 200
+    mock_resp_ready.json.return_value = {"status": "ready", "is_ready": True, "inference_mode": "pipeline"}
+
+    mock_resp_reload = MagicMock()
+    mock_resp_reload.status_code = 200
+    mock_resp_reload.json.return_value = {"status": "reloaded"}
+
+    class MockHttpxClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def get(self, url, **kwargs):
+            return mock_resp_ready
+
+        def post(self, url, **kwargs):
+            return mock_resp_reload
+
+    monkeypatch.setattr("httpx.Client", MockHttpxClient)

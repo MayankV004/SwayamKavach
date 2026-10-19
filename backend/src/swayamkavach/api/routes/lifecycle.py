@@ -1,7 +1,6 @@
-"""Lifecycle state query routes."""
-
 import json
 import logging
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -9,6 +8,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from schemas.lifecycle import DamageFingerprint, LifecycleState, RepairAction
+from swayamkavach.api.auth import OperatorContext, require_control_plane_auth
 from swayamkavach.damage.calculator import DamageCalculator
 from swayamkavach.db.models import LifecycleStateRecordDB
 from swayamkavach.db.session import get_db
@@ -29,7 +29,7 @@ def get_lifecycle_state(
     and durable record retrieval for offline/replay scenario benchmarks.
     """
     # Check for release R1 manifest to verify active champion
-    backend_dir = Path(__file__).resolve().parent.parent.parent.parent
+    backend_dir = Path(__file__).resolve().parent.parent.parent.parent.parent
     r1_manifest = backend_dir / "releases" / "R1" / "manifest.json"
 
     champion = "R1"
@@ -51,14 +51,24 @@ def get_lifecycle_state(
 
     record = db.query(LifecycleStateRecordDB).first()
 
+    # Check if a scenario simulation was recently recorded in DB (within last 120 seconds)
+    scenario_simulation_active = False
+    if record and record.updated_at and record.last_action != "A0":
+        rec_time = record.updated_at if record.updated_at.tzinfo else record.updated_at.replace(tzinfo=UTC)
+        age_seconds = (datetime.now(UTC) - rec_time).total_seconds()
+        if age_seconds < 120:
+            scenario_simulation_active = True
+
     # Determine whether to compute live sliding window or use recorded fingerprint
-    evaluate_live = (mode == "live") or (mode == "auto" and stream_active)
+    evaluate_live = (mode == "live") or (mode == "auto" and stream_active and not scenario_simulation_active)
 
     fingerprint: DamageFingerprint | None = None
     action: RepairAction = RepairAction.A0
 
+    monitoring_window_size = int(os.getenv("MONITORING_WINDOW_SIZE", "1000"))
+
     if evaluate_live:
-        window = WindowSelector().select_latest_window(db, window_size=500)
+        window = WindowSelector().select_latest_window(db, window_size=monitoring_window_size)
         if window is not None and len(window.features_df) > 0:
             from swayamkavach.damage.persistence import PersistenceTracker
 
@@ -103,7 +113,7 @@ def get_lifecycle_state(
 
     if fingerprint is None:
         # Fallback to nominal baseline
-        window = WindowSelector().select_latest_window(db, window_size=500)
+        window = WindowSelector().select_latest_window(db, window_size=monitoring_window_size)
         if window is not None and len(window.features_df) > 0:
             calc = DamageCalculator()
             fingerprint = calc.compute_fingerprint(
@@ -149,7 +159,10 @@ def get_lifecycle_state(
 
 
 @router.post("/reset", response_model=LifecycleState, status_code=status.HTTP_200_OK)
-def reset_lifecycle_state(db: Session = Depends(get_db)):
+def reset_lifecycle_state(
+    db: Session = Depends(get_db),
+    _operator: OperatorContext = Depends(require_control_plane_auth),
+):
     """Reset lifecycle state to clean nominal baseline (Champion R1 on Slot A, Canary 0%)."""
     record = db.query(LifecycleStateRecordDB).first()
     nominal_fp = {

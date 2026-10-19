@@ -224,11 +224,11 @@ def test_evaluation_approval_api_security_gates():
     assert resp_fail.status_code == 403
     assert "Cannot approve candidate with verdict FAIL" in resp_fail.json()["detail"]
 
-    # 2. Approving PASS report must stage candidate to Slot B with 5% canary weight
+    # 2. Approving PASS report with existing artifact bundle stages candidate to Slot B with 5% canary weight
     pass_report = EvaluationReport(
         report_id="EVAL_R1_R2_PASS_001",
         champion_release="R1",
-        candidate_release="R2-candidate",
+        candidate_release="R2",
         verdict=EvaluationVerdict.PASS,
         p_value=0.02,
         statistically_significant=True,
@@ -254,7 +254,46 @@ def test_evaluation_approval_api_security_gates():
     assert resp_pass.status_code == 200
     data = resp_pass.json()
     assert data["status"] == "approved"
-    assert data["candidate_release"] == "R2-candidate"
+    assert data["candidate_release"] == "R2"
     assert data["candidate_slot"] == "B"
     assert data["canary_weight"] == 0.05
     assert "approval_signature" in data
+
+
+def test_candidate_approval_rejects_missing_bundle():
+    """Verify approval fails closed with HTTP 400 when artifact bundle or manifest is missing."""
+    import swayamkavach.api.routes.evaluation as eval_module
+    from starlette.testclient import TestClient
+    from swayamkavach.api.main import app
+    from swayamkavach.evaluation.compare import EvaluationReport
+
+    client = TestClient(app)
+    missing_report = EvaluationReport(
+        report_id="EVAL_R1_NONEXISTENT_PASS_001",
+        champion_release="R1",
+        candidate_release="NON_EXISTENT_RELEASE_999",
+        verdict=EvaluationVerdict.PASS,
+        p_value=0.01,
+        statistically_significant=True,
+        rejection_reasons=[],
+        champion_metrics={"recall": 0.99, "fpr": 0.008},
+        candidate_metrics={"recall": 0.995, "fpr": 0.006},
+        per_class_recall_comparison={},
+        evaluated_samples=500,
+        approval_hash="hash_missing_789",
+        created_at=datetime.now(UTC).isoformat(),
+    )
+    eval_module._latest_report = missing_report
+
+    auth_headers = {"X-API-Key": "swayamkavach-control-plane-secret-key-v1"}
+    resp = client.post(
+        "/api/v1/evaluations/approve",
+        json={
+            "report_id": "EVAL_R1_NONEXISTENT_PASS_001",
+            "approval_hash": "hash_missing_789",
+            "operator_id": "auditor",
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 400
+    assert "not found" in resp.json()["detail"]

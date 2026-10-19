@@ -22,8 +22,29 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 logger = logging.getLogger("swayamkavach.api.auth")
 
 DEFAULT_DEV_KEY = "swayamkavach-control-plane-secret-key-v1"
-CONTROL_PLANE_API_KEY = os.getenv("CONTROL_PLANE_API_KEY", DEFAULT_DEV_KEY)
-CONTROL_PLANE_SECRET_KEY = os.getenv("CONTROL_PLANE_SECRET_KEY", "swayamkavach-approval-hmac-secret-v1")
+DEFAULT_DEV_HMAC_SECRET = "swayamkavach-approval-hmac-secret-v1"
+
+ENV = os.getenv("ENVIRONMENT", os.getenv("SWAYAMKAVACH_ENV", "development")).strip().lower()
+
+_raw_api_key = os.getenv("CONTROL_PLANE_API_KEY")
+_raw_secret_key = os.getenv("CONTROL_PLANE_SECRET_KEY")
+
+if ENV in ("production", "prod"):
+    if not _raw_api_key or _raw_api_key == DEFAULT_DEV_KEY or len(_raw_api_key) < 32:
+        raise RuntimeError(
+            "Production security breach: CONTROL_PLANE_API_KEY must be explicitly configured "
+            "with at least 32 characters in production. Default development keys are rejected."
+        )
+    if not _raw_secret_key or _raw_secret_key == DEFAULT_DEV_HMAC_SECRET or len(_raw_secret_key) < 32:
+        raise RuntimeError(
+            "Production security breach: CONTROL_PLANE_SECRET_KEY must be explicitly configured "
+            "with at least 32 characters in production. Default development keys are rejected."
+        )
+    CONTROL_PLANE_API_KEY = _raw_api_key
+    CONTROL_PLANE_SECRET_KEY = _raw_secret_key
+else:
+    CONTROL_PLANE_API_KEY = _raw_api_key or DEFAULT_DEV_KEY
+    CONTROL_PLANE_SECRET_KEY = _raw_secret_key or DEFAULT_DEV_HMAC_SECRET
 
 security_bearer = HTTPBearer(auto_error=False)
 
@@ -35,6 +56,10 @@ class OperatorContext:
     operator_id: str
     role: str
     is_authenticated: bool = True
+    permissions: tuple[str, ...] = ("telemetry", "labels", "evaluation", "deployment", "admin")
+
+    def has_permission(self, permission: str) -> bool:
+        return "admin" in self.permissions or permission in self.permissions
 
 
 def verify_control_plane_token(token: str | None) -> bool:

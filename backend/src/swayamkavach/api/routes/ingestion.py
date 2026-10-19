@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from schemas.ingestion import BatchIngestRequest, BatchReceiptResponse
+from swayamkavach.api.auth import OperatorContext, require_control_plane_auth
 from swayamkavach.db.models import FlowEventRecordDB, IngestionBatchRecordDB
 from swayamkavach.db.session import get_db
 
@@ -15,7 +16,11 @@ router = APIRouter(prefix="/ingestion", tags=["Ingestion"])
 
 
 @router.post("/batches", response_model=BatchReceiptResponse, status_code=status.HTTP_202_ACCEPTED)
-def ingest_batch(payload: BatchIngestRequest, db: Session = Depends(get_db)):
+def ingest_batch(
+    payload: BatchIngestRequest,
+    db: Session = Depends(get_db),
+    _operator: OperatorContext = Depends(require_control_plane_auth),
+):
     """Accept and durably persist a batch of Zeek flow events.
 
     Returns HTTP 202 with durable receipt acknowledging acceptance.

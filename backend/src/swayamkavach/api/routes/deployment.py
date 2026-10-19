@@ -94,17 +94,28 @@ def stage_candidate(
         )
 
     # 2. Verify candidate artifact sha256 digest integrity
-    backend_dir = Path(__file__).resolve().parent.parent.parent.parent
-    bundle_path = backend_dir / "releases" / payload.candidate_release_id / "pipeline.joblib"
-    if bundle_path.exists():
-        with open(bundle_path, "rb") as f:
-            actual_sha = hashlib.sha256(f.read()).hexdigest()
-        if actual_sha != approved.candidate_sha256:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Candidate artifact integrity mismatch for {payload.candidate_release_id}. "
-                       "Artifact modified after approval.",
-            )
+    backend_dir = Path(__file__).resolve().parent.parent.parent.parent.parent
+    rel_dir = backend_dir / "releases" / payload.candidate_release_id
+    bundle_path = rel_dir / "pipeline.joblib"
+    manifest_path = rel_dir / "manifest.json"
+
+    if not bundle_path.exists() or not manifest_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Candidate artifact bundle (pipeline.joblib) or manifest.json not found in {rel_dir}. "
+                "Missing or incomplete candidate releases cannot be staged."
+            ),
+        )
+
+    with open(bundle_path, "rb") as f:
+        actual_sha = hashlib.sha256(f.read()).hexdigest()
+    if actual_sha != approved.candidate_sha256:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Candidate artifact integrity mismatch for {payload.candidate_release_id}. "
+                   "Artifact modified after approval.",
+        )
 
     # 3. Verify HMAC signature authenticity
     is_valid_sig = verify_approval_signature(

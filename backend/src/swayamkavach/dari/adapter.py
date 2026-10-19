@@ -168,28 +168,38 @@ class LocalSubspaceAdapter:
             # Clone champion pipeline architecture
             adapted_pipeline = clone(champ_pipeline)
 
+            # Split labeled localized window into train (70%) and holdout validation (30%)
+            if len(df_labeled) >= 10 and len(set(y_labeled)) > 1:
+                from sklearn.model_selection import train_test_split
+                x_train, x_val, y_train, y_val = train_test_split(
+                    df_labeled, y_labeled, test_size=0.30, random_state=42, stratify=y_labeled
+                )
+            else:
+                x_train, x_val = df_labeled, df_labeled
+                y_train, y_val = y_labeled, y_labeled
+
             # Load a small baseline anchor sample from val.csv.gz to prevent catastrophic forgetting
             val_path = self.backend_dir / "data" / "processed" / "val.csv.gz"
             if val_path.exists():
                 val_df = pd.read_csv(val_path, nrows=300)
-                anchor_cols = [c for c in df_labeled.columns if c in val_df.columns]
+                anchor_cols = [c for c in x_train.columns if c in val_df.columns]
                 x_anchor = val_df[anchor_cols]
                 y_anchor = val_df["label"].values
-                x_combined = pd.concat([df_labeled[anchor_cols], x_anchor], ignore_index=True)
-                y_combined = np.concatenate([y_labeled, y_anchor])
+                x_combined = pd.concat([x_train[anchor_cols], x_anchor], ignore_index=True)
+                y_combined = np.concatenate([y_train, y_anchor])
             else:
-                anchor_cols = list(df_labeled.columns)
-                x_combined = df_labeled
-                y_combined = y_labeled
+                anchor_cols = list(x_train.columns)
+                x_combined = x_train
+                y_combined = y_train
 
-            # Fit adapted pipeline on localized window + anchor
+            # Fit adapted pipeline on localized window train split + anchor
             adapted_pipeline.fit(x_combined, y_combined)
 
-            # Validate on the localized window
-            preds = adapted_pipeline.predict(df_labeled[anchor_cols])
-            rec = float(recall_score(y_labeled, preds, zero_division=0))
-            prec = float(precision_score(y_labeled, preds, zero_division=0))
-            f1 = float(f1_score(y_labeled, preds, zero_division=0))
+            # Validate on unseen holdout partition of localized window
+            preds = adapted_pipeline.predict(x_val[anchor_cols])
+            rec = float(recall_score(y_val, preds, zero_division=0))
+            prec = float(precision_score(y_val, preds, zero_division=0))
+            f1 = float(f1_score(y_val, preds, zero_division=0))
 
             # Save adapted pipeline bundle
             bundle_out = output_dir / "pipeline.joblib"
@@ -208,10 +218,12 @@ class LocalSubspaceAdapter:
                 "bundle_sha256": bundle_sha,
                 "decision_threshold": 0.42,
                 "metrics": {
-                    "local_window_recall": round(rec, 4),
-                    "local_window_precision": round(prec, 4),
-                    "local_window_f1": round(f1, 4),
-                    "samples_evaluated": len(y_labeled),
+                    "holdout_recall": round(rec, 4),
+                    "holdout_precision": round(prec, 4),
+                    "holdout_f1": round(f1, 4),
+                    "holdout_samples": len(y_val),
+                    "training_samples": len(df_labeled),
+                    "total_fit_samples": len(y_combined),
                 },
                 "status": "ready_for_evaluation",
                 "adapted_at": datetime.now(UTC).isoformat(),
@@ -223,7 +235,7 @@ class LocalSubspaceAdapter:
 
             duration = round(time.time() - start_time, 2)
             logger.info(
-                "Level A2 localized adaptation succeeded in %.2fs: recall=%.4f, f1=%.4f -> %s",
+                "Level A2 localized adaptation succeeded in %.2fs: holdout_recall=%.4f, holdout_f1=%.4f -> %s",
                 duration,
                 rec,
                 f1,
@@ -239,7 +251,7 @@ class LocalSubspaceAdapter:
                 candidate_pipeline=adapted_pipeline,
                 bundle_path=bundle_out,
                 manifest_path=manifest_path,
-                training_samples=len(y_labeled),
+                training_samples=len(df_labeled),
             )
 
         except Exception as exc:

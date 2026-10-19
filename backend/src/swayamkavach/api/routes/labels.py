@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from schemas.label import DelayedLabelBatch, DelayedLabelItem, DelayedLabelReceipt
+from swayamkavach.api.auth import OperatorContext, require_control_plane_auth
 from swayamkavach.db.models import GroundTruthLabelRecordDB
 from swayamkavach.db.session import get_db
 
@@ -15,7 +16,11 @@ router = APIRouter(prefix="/labels", tags=["Labels"])
 
 
 @router.post("", response_model=DelayedLabelReceipt, status_code=status.HTTP_201_CREATED)
-def ingest_labels(payload: DelayedLabelBatch, db: Session = Depends(get_db)):
+def ingest_labels(
+    payload: DelayedLabelBatch,
+    db: Session = Depends(get_db),
+    _operator: OperatorContext = Depends(require_control_plane_auth),
+):
     """Ingest a batch of verified ground-truth labels for flow events.
 
     Performs idempotent insert/update for each label record.

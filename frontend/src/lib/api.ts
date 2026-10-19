@@ -113,7 +113,7 @@ export async function runDriftScenario(
 ): Promise<ScenarioRunResult> {
   const res = await fetch(`${API_BASE_URL}/experiments/scenarios/run`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getControlHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ scenario }),
   });
   if (!res.ok) {
@@ -155,7 +155,7 @@ export async function ingestFlowBatch(
 ): Promise<BatchReceiptResponse> {
   const res = await fetch(`${API_BASE_URL}/ingestion/batches`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getControlHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(payload),
   });
   if (!res.ok) {

@@ -311,12 +311,70 @@ class ModelComparator:
         candidate_threshold: float = 0.42,
     ) -> EvaluationReport:
         """Execute paired comparison, check safety gates, and determine verdict."""
-        # Clean labels
-        y_true = pd.to_numeric(val_df["label"], errors="coerce").fillna(0).astype(int).values
-        attack_types = val_df["type"].fillna("normal").values if "type" in val_df.columns else None
+        # Validate labels strictly: do NOT silently convert NaN or unparseable labels to benign class 0
+        raw_labels = pd.to_numeric(val_df["label"], errors="coerce")
+        valid_mask = raw_labels.notna() & raw_labels.isin([0, 1])
+        unlabeled_count = int((~valid_mask).sum())
 
-        feature_cols = [c for c in val_df.columns if c not in ["label", "type", "src_ip", "dst_ip", "src_port", "dst_port"]]
-        features_df = val_df[feature_cols]
+        if unlabeled_count > 0:
+            logger.warning(
+                "Evaluation dataset contains %d missing, non-binary, or unparseable labels; dropping them from paired evaluation.",
+                unlabeled_count,
+            )
+            valid_df = val_df.loc[valid_mask].reset_index(drop=True)
+            y_true = raw_labels[valid_mask].astype(int).values
+        else:
+            valid_df = val_df.copy()
+            y_true = raw_labels.astype(int).values
+
+        # If remaining valid samples are insufficient or single-class, return INCONCLUSIVE
+        if len(y_true) < self.min_samples_for_pass or len(set(y_true)) < 2:
+            reasons: list[str] = []
+            if len(y_true) < self.min_samples_for_pass:
+                reasons.append(
+                    f"Insufficient evaluation samples N={len(y_true)} < {self.min_samples_for_pass} "
+                    f"({unlabeled_count} missing/invalid labels excluded)"
+                )
+            if len(set(y_true)) < 2:
+                reasons.append(
+                    f"Single-class validation slice observed (classes: {set(y_true)}). "
+                    "Evaluation requires both attack and benign classes."
+                )
+
+            now_str = datetime.now(UTC).isoformat()
+            approval_payload = f"{champion_release}|{candidate_release}|INCONCLUSIVE|0.0|0.0|{now_str}"
+            approval_hash = hashlib.sha256(approval_payload.encode("utf-8")).hexdigest()
+            report_id = f"EVAL_{champion_release}_{candidate_release}_{approval_hash[:8]}"
+
+            empty_metrics = {
+                "accuracy": 0.0, "recall": 0.0, "precision": 0.0, "f1": 0.0,
+                "fpr": 0.0, "pr_auc": 0.0, "roc_auc": 0.0, "tp": 0, "fp": 0, "tn": 0, "fn": 0,
+            }
+            return EvaluationReport(
+                report_id=report_id,
+                champion_release=champion_release,
+                candidate_release=candidate_release,
+                verdict=EvaluationVerdict.INCONCLUSIVE,
+                p_value=1.0,
+                statistically_significant=False,
+                rejection_reasons=reasons,
+                champion_metrics=empty_metrics,
+                candidate_metrics=empty_metrics,
+                per_class_recall_comparison={},
+                evaluated_samples=len(y_true),
+                approval_hash=approval_hash,
+                created_at=now_str,
+            )
+
+        attack_types = (
+            valid_df["type"].fillna("normal").values if "type" in valid_df.columns else None
+        )
+
+        feature_cols = [
+            c for c in valid_df.columns
+            if c not in ["label", "type", "src_ip", "dst_ip", "src_port", "dst_port"]
+        ]
+        features_df = valid_df[feature_cols]
 
         champ_probs = champion_pipeline.predict_proba(features_df)[:, 1]
         cand_probs = candidate_pipeline.predict_proba(features_df)[:, 1]

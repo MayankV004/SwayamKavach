@@ -111,13 +111,17 @@ class DARISolver:
         rejections: dict[str, str] = {}
 
         # 0. Boundary Calibration (A1) feasibility check
-        # A1 is designed for boundary ambiguity (D_B).
         # Severe covariate shift (D_X >= severe_damage_threshold) without boundary ambiguity
         # cannot be resolved by threshold movement alone.
         if fp.D_X >= self.severe_damage_threshold and fp.D_B < 0.20:
             rejections[RepairAction.A1.value] = (
                 f"Severe covariate shift D_X={fp.D_X:.3f} >= {self.severe_damage_threshold:.3f} "
                 f"without commensurate boundary ambiguity (D_B={fp.D_B:.3f}) precludes threshold recalibration alone."
+            )
+        elif fp.D_B < self.boundary_threshold:
+            rejections[RepairAction.A1.value] = (
+                f"Boundary damage D_B={fp.D_B:.3f} < {self.boundary_threshold:.3f}. "
+                "Threshold recalibration is only applicable when decision boundary uncertainty is elevated."
             )
         else:
             feasible.append(RepairAction.A1)
@@ -190,9 +194,9 @@ class DARISolver:
 
             elif action == RepairAction.A1:
                 # Threshold calibration specifically remedies boundary/uncertainty damage D_B.
-                # However, if there is severe structural degradation (D_X >= severe_damage_threshold or d_y >= 0.15),
-                # threshold movement is ineffective against deep feature mismatch.
-                if fp.D_X >= self.severe_damage_threshold or d_y >= 0.15:
+                if fp.D_B < self.boundary_threshold:
+                    recovery = 0.0
+                elif fp.D_X >= self.severe_damage_threshold or d_y >= 0.15:
                     recovery = 0.20  # Ineffective against broad structural degradation
                 else:
                     recovery = float(min(1.0, 0.40 + fp.D_B * 1.2))

@@ -50,14 +50,17 @@ _latest_report: EvaluationReport | None = None
 
 
 @router.post("/compare", response_model=dict[str, Any], status_code=status.HTTP_200_OK)
-def compare_candidate(payload: EvaluateCandidateRequest):
+def compare_candidate(
+    payload: EvaluateCandidateRequest,
+    _operator: OperatorContext = Depends(require_control_plane_auth),
+):
     """Run paired statistical comparison between Champion and Candidate model.
 
     Enforces hard non-regression gates and outputs PASS / FAIL / INCONCLUSIVE report.
     """
     global _latest_report
 
-    backend_dir = Path(__file__).resolve().parent.parent.parent.parent
+    backend_dir = Path(__file__).resolve().parent.parent.parent.parent.parent
     champ_dir = backend_dir / "releases" / payload.champion_release_id
     cand_dir = backend_dir / "releases" / payload.candidate_release_id
 
@@ -146,14 +149,39 @@ def approve_candidate(
                    f"Only PASS candidates may enter canary staging. Rejections: {_latest_report.rejection_reasons}",
         )
 
-    # Verify candidate bundle exists and calculate SHA-256 digest
-    backend_dir = Path(__file__).resolve().parent.parent.parent.parent
-    cand_bundle = backend_dir / "releases" / _latest_report.candidate_release / "pipeline.joblib"
-    if cand_bundle.exists():
-        with open(cand_bundle, "rb") as f:
-            cand_sha256 = hashlib.sha256(f.read()).hexdigest()
-    else:
-        cand_sha256 = hashlib.sha256(f"{_latest_report.candidate_release}:{_latest_report.approval_hash}".encode()).hexdigest()
+    # Verify candidate bundle and manifest exist and calculate SHA-256 digest
+    backend_dir = Path(__file__).resolve().parent.parent.parent.parent.parent
+    cand_rel_dir = backend_dir / "releases" / _latest_report.candidate_release
+    cand_bundle = cand_rel_dir / "pipeline.joblib"
+    cand_manifest_path = cand_rel_dir / "manifest.json"
+
+    if not cand_bundle.exists() or not cand_manifest_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Candidate artifact bundle (pipeline.joblib) or manifest.json not found in {cand_rel_dir}. "
+                "Missing or unverified candidate artifacts cannot be approved or staged."
+            ),
+        )
+
+    with open(cand_bundle, "rb") as f:
+        cand_sha256 = hashlib.sha256(f.read()).hexdigest()
+
+    # Validate manifest digest matches bundle
+    try:
+        with open(cand_manifest_path, encoding="utf-8") as f:
+            cand_m = json.load(f)
+            expected_sha = cand_m.get("bundle_sha256")
+            if expected_sha and expected_sha != cand_sha256:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Candidate artifact digest mismatch: actual {cand_sha256} != manifest {expected_sha}",
+                )
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Candidate manifest.json at {cand_manifest_path} is malformed JSON.",
+        )
 
     # Expiry 24 hours from approval
     from datetime import timedelta
@@ -184,43 +212,31 @@ def approve_candidate(
         created_at=now_dt,
     )
     db.merge(approved_record)
-
-    # Assign candidate to inactive slot
-    record = db.query(LifecycleStateRecordDB).first()
-    if record is None:
-        record = LifecycleStateRecordDB(
-            id=1,
-            champion_release=_latest_report.champion_release,
-            active_slot="A",
-            candidate_release=_latest_report.candidate_release,
-            candidate_slot="B",
-            canary_weight=0.05,
-            updated_at=now_dt,
-        )
-        db.add(record)
-    else:
-        active = record.active_slot or "A"
-        cand_slot = "B" if active == "A" else "A"
-        record.candidate_release = _latest_report.candidate_release
-        record.candidate_slot = cand_slot
-        record.canary_weight = 0.05  # Initial canary stage: 5%
-        record.updated_at = now_dt
-
     db.commit()
+
+    # Stage candidate into inactive slot using CanaryController
+    from swayamkavach.deployment.canary import CanaryController
+
+    canary_ctrl = CanaryController()
+    state = canary_ctrl.stage_candidate(
+        db,
+        candidate_release=_latest_report.candidate_release,
+        initial_weight=0.05,
+    )
 
     logger.info(
         "Candidate %s approved by %s (HMAC sig: %s...). Staged to Slot %s with canary weight 5%%",
         _latest_report.candidate_release,
         operator_id,
         sig[:12],
-        record.candidate_slot,
+        state.candidate_slot,
     )
 
     return {
         "status": "approved",
         "candidate_release": _latest_report.candidate_release,
-        "candidate_slot": record.candidate_slot,
-        "canary_weight": record.canary_weight,
+        "candidate_slot": state.candidate_slot,
+        "canary_weight": state.canary_weight,
         "approved_by": operator_id,
         "approved_at": now_dt.isoformat(),
         "expires_at": expires_at_iso,
