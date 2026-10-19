@@ -29,33 +29,67 @@ DEFAULT_EVALUATION_KEY = "swayamkavach-evaluation-dev-key"
 DEFAULT_APPROVAL_KEY = "swayamkavach-approval-dev-key"
 DEFAULT_DEPLOYMENT_KEY = "swayamkavach-deployment-dev-key"
 
+DEV_DEFAULT_KEYS = {
+    "CONTROL_PLANE_API_KEY": DEFAULT_DEV_KEY,
+    "CONTROL_PLANE_SECRET_KEY": DEFAULT_DEV_HMAC_SECRET,
+    "TELEMETRY_API_KEY": DEFAULT_TELEMETRY_KEY,
+    "LABELS_API_KEY": DEFAULT_LABELS_KEY,
+    "EVALUATION_API_KEY": DEFAULT_EVALUATION_KEY,
+    "APPROVAL_API_KEY": DEFAULT_APPROVAL_KEY,
+    "DEPLOYMENT_API_KEY": DEFAULT_DEPLOYMENT_KEY,
+}
+
 ENV = os.getenv("ENVIRONMENT", os.getenv("SWAYAMKAVACH_ENV", "development")).strip().lower()
 
-_raw_api_key = os.getenv("CONTROL_PLANE_API_KEY")
-_raw_secret_key = os.getenv("CONTROL_PLANE_SECRET_KEY")
 
-if ENV in ("production", "prod"):
-    if not _raw_api_key or _raw_api_key == DEFAULT_DEV_KEY or len(_raw_api_key) < 32:
+def validate_production_credential(env_var_name: str, value: str | None, default_dev_value: str) -> str:
+    """Validate that a production credential is set, non-default, and sufficiently strong."""
+    if not value:
         raise RuntimeError(
-            "Production security breach: CONTROL_PLANE_API_KEY must be explicitly configured "
-            "with at least 32 characters in production. Default development keys are rejected."
+            f"Production security breach: {env_var_name} must be explicitly configured in production. "
+            "Missing credentials are not permitted."
         )
-    if not _raw_secret_key or _raw_secret_key == DEFAULT_DEV_HMAC_SECRET or len(_raw_secret_key) < 32:
+    if value == default_dev_value:
         raise RuntimeError(
-            "Production security breach: CONTROL_PLANE_SECRET_KEY must be explicitly configured "
-            "with at least 32 characters in production. Default development keys are rejected."
+            f"Production security breach: {env_var_name} cannot use the default development key. "
+            "Default development keys are strictly rejected in production."
         )
-    CONTROL_PLANE_API_KEY = _raw_api_key
-    CONTROL_PLANE_SECRET_KEY = _raw_secret_key
-else:
-    CONTROL_PLANE_API_KEY = _raw_api_key or DEFAULT_DEV_KEY
-    CONTROL_PLANE_SECRET_KEY = _raw_secret_key or DEFAULT_DEV_HMAC_SECRET
+    if len(value) < 32:
+        raise RuntimeError(
+            f"Production security breach: {env_var_name} must be at least 32 characters in production. "
+            f"Current length ({len(value)}) is insufficient for cryptographic safety."
+        )
+    return value
 
-TELEMETRY_API_KEY = os.getenv("TELEMETRY_API_KEY", DEFAULT_TELEMETRY_KEY)
-LABELS_API_KEY = os.getenv("LABELS_API_KEY", DEFAULT_LABELS_KEY)
-EVALUATION_API_KEY = os.getenv("EVALUATION_API_KEY", DEFAULT_EVALUATION_KEY)
-APPROVAL_API_KEY = os.getenv("APPROVAL_API_KEY", DEFAULT_APPROVAL_KEY)
-DEPLOYMENT_API_KEY = os.getenv("DEPLOYMENT_API_KEY", DEFAULT_DEPLOYMENT_KEY)
+
+def load_auth_credentials(env: str | None = None) -> dict[str, str]:
+    """Load and validate all control-plane and scoped credentials according to environment."""
+    current_env = (env or os.getenv("ENVIRONMENT", os.getenv("SWAYAMKAVACH_ENV", "development"))).strip().lower()
+    is_prod = current_env in ("production", "prod")
+
+    credentials = {}
+    for var_name, dev_val in DEV_DEFAULT_KEYS.items():
+        raw_val = os.getenv(var_name)
+        if is_prod:
+            credentials[var_name] = validate_production_credential(var_name, raw_val, dev_val)
+        else:
+            credentials[var_name] = raw_val or dev_val
+    return credentials
+
+
+def validate_production_credentials(env: str = "production") -> dict[str, str]:
+    """Validate all credentials for production environment."""
+    return load_auth_credentials(env=env)
+
+
+_creds = load_auth_credentials()
+CONTROL_PLANE_API_KEY = _creds["CONTROL_PLANE_API_KEY"]
+CONTROL_PLANE_SECRET_KEY = _creds["CONTROL_PLANE_SECRET_KEY"]
+TELEMETRY_API_KEY = _creds["TELEMETRY_API_KEY"]
+LABELS_API_KEY = _creds["LABELS_API_KEY"]
+EVALUATION_API_KEY = _creds["EVALUATION_API_KEY"]
+APPROVAL_API_KEY = _creds["APPROVAL_API_KEY"]
+DEPLOYMENT_API_KEY = _creds["DEPLOYMENT_API_KEY"]
 
 security_bearer = HTTPBearer(auto_error=False)
 

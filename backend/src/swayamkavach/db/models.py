@@ -117,7 +117,7 @@ class WindowDamageHistoryDB(Base):
     __tablename__ = "window_damage_history"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    window_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    window_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
     d_x: Mapped[float] = mapped_column(Float, nullable=False)
     d_y: Mapped[float | None] = mapped_column(Float, nullable=True)
     d_b: Mapped[float] = mapped_column(Float, nullable=False)

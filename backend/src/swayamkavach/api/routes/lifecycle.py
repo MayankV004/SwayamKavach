@@ -78,6 +78,10 @@ def get_lifecycle_state(
             d_b = calc.compute_boundary_damage(window.scores)
             d_y = calc.compute_performance_damage(window.y_true, window.scores)
             q = calc.compute_data_quality(window.features_df)
+            w_end = window.end_time
+            if w_end.tzinfo is None:
+                w_end = w_end.replace(tzinfo=UTC)
+
             r_count = tracker.record_and_compute_persistence(
                 db=db,
                 window_id=window.window_id,
@@ -87,6 +91,7 @@ def get_lifecycle_state(
                 q=q,
                 l=window.label_reliability * window.label_coverage,
                 s=window.sample_count,
+                window_end_at=w_end,
             )
             fingerprint = calc.compute_fingerprint(
                 current_df=window.features_df,

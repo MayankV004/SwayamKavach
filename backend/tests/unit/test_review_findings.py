@@ -454,6 +454,7 @@ def test_empirical_benchmark_runner_executes_on_real_dataset():
 def test_unauthenticated_sensitive_endpoints_rejected_401():
     """Verify sensitive mutation routes reject requests lacking control-plane credentials."""
     from starlette.testclient import TestClient
+
     from swayamkavach.api.main import app
 
     unauth_client = TestClient(app)
@@ -488,7 +489,7 @@ def test_unauthenticated_sensitive_endpoints_rejected_401():
 def test_production_env_blocks_default_dev_secrets(monkeypatch):
     """Verify server rejects default dev credentials when ENVIRONMENT=production."""
     import importlib
-    import os
+
     import swayamkavach.api.auth as auth_mod
 
     monkeypatch.setenv("ENVIRONMENT", "production")
@@ -506,7 +507,8 @@ def test_production_env_blocks_default_dev_secrets(monkeypatch):
 def test_model_comparator_missing_labels_does_not_convert_to_benign():
     """Verify ModelComparator does not silently convert missing/NaN labels to benign class 0."""
     from unittest.mock import MagicMock
-    from swayamkavach.evaluation.compare import ModelComparator, EvaluationVerdict
+
+    from swayamkavach.evaluation.compare import EvaluationVerdict, ModelComparator
 
     comparator = ModelComparator(min_samples_for_pass=10)
 

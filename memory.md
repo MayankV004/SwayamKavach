@@ -64,44 +64,38 @@ Monitor → Detect → Diagnose → Select Repair → Build Candidate → Valida
 
 ## 4. Changelog & Modification History
 
-### [2026-10-19] — Comprehensive Safety, Lifecycle & DARI Architecture Hardening (Issues 1–10 Resolved, 100 Tests Green)
-- **Action**: Addressed comprehensive review findings across canary deployment safety, Nginx verification, candidate pre-flight checks, data split isolation, calibration state machines, event-time persistence, least-privilege security, durable evaluation reports, LangGraph guarded autonomy, and reproducible empirical benchmarking.
-- **Key Deliverables & Architectural Fixes**:
-  - **Issue 1 (Canary Evidence Safety Gates)**:
-    - Updated [`canary.py`](file:///home/streamliner/btp/backend/src/swayamkavach/deployment/canary.py): fixed the `0 < len(labeled_preds) < min_samples` loophole by enforcing `len(labeled_preds) < min_samples` to fail closed.
-    - Implemented independent minimum sample validation for attacks (`min_attacks >= 5`) and benign flows (`min_benign >= 10`), preventing promotion on all-benign or all-attack traffic slices.
-  - **Issue 2 (Verifiable Nginx Routing)**:
-    - Replaced write-and-hope file updates with transactional 5-step routing in `apply_and_verify_routing`: render, syntax validate, write to `.tmp` file, atomic rename, and content verification.
-    - Deployment state is only persisted to DB after verified routing. Rollback failures transition to `RECONCILIATION_REQUIRED`.
-  - **Issue 3 (Pre-Flight Candidate Verification)**:
-    - Updated `stage_candidate()` to verify candidate bundle existence and SHA-256 digest against `manifest.json` on disk.
-    - Reloads candidate in inactive slot (`POST /reload`), validates `GET /identity` matches candidate release ID, and validates `GET /readyz` is ready and strictly non-heuristic before shifting any traffic.
-  - **Issue 4 (Separation of Anchor Dataset from Evaluation Data)**:
-    - Updated [`adapter.py`](file:///home/streamliner/btp/backend/src/swayamkavach/dari/adapter.py): switched anchor sampling from `data/processed/val.csv.gz` to `data/processed/train.csv.gz`, eliminating generalization leakage into candidate tuning ($A_2$).
-  - **Issue 5 (A1 Threshold State Machine & Manifest Retention)**:
-    - Implemented 5-state calibration machine in `calibrate_node()` ([`graph.py`](file:///home/streamliner/btp/backend/src/swayamkavach/agents/graph.py)): `CALIBRATION_INCONCLUSIVE`, `CALIBRATION_COMPUTED`, `ACTIVATION_PARTIAL`, `ACTIVATION_VERIFIED`, and `ACTIVATION_FAILED`.
-    - Added `proposed_threshold`, `decision_threshold`, and `threshold_state` to `LifecycleStateRecordDB`.
-    - Preserved champion decision threshold in $A_2$ candidate manifests.
-  - **Issue 6 (Event-Time Persistence Chronology)**:
-    - Updated [`persistence.py`](file:///home/streamliner/btp/backend/src/swayamkavach/damage/persistence.py) and `WindowDamageHistoryDB`: decoupled telemetry event time (`window_end_at`) and monotonic sequence numbers (`sequence_num`) from processing time (`evaluated_at`).
-    - Reprocessed windows with delayed labels update `evaluated_at` but retain `window_end_at`, preventing out-of-order records from distorting persistence count ($R$).
-  - **Issue 7 (Granular Least-Privilege Authorization)**:
-    - Enhanced [`auth.py`](file:///home/streamliner/btp/backend/src/swayamkavach/api/auth.py): replaced monolithic admin tokens with role-scoped keys and permissions (`telemetry:write`, `labels:write`, `evaluation:run`, `evaluation:approve`, `deployment:manage`, `lifecycle:reset`).
-    - Added production-mode security enforcement: rejects default development keys or keys shorter than 32 characters on startup when `ENVIRONMENT=production`.
-  - **Issue 8 (Durable Evaluation Reports & Candidate Binding)**:
-    - Added [`EvaluationReportRecordDB`](file:///home/streamliner/btp/backend/src/swayamkavach/db/models.py): persists evaluation reports durably to SQLite/PostgreSQL.
-    - `/api/v1/evaluations/approve` retrieves reports from database, verifies HMAC signature, checks candidate bundle SHA-256 against evaluated digest, and rejects mutated or expired approvals.
-  - **Issue 9 (Guarded Autonomy in LangGraph)**:
-    - Extended LangGraph workflow in [`graph.py`](file:///home/streamliner/btp/backend/src/swayamkavach/agents/graph.py) with `evaluate_candidate_node` and conditional routing after candidate build ($A_2$/$A_3$).
-    - Enforced explicit lifecycle stages: `MONITORED` $\to$ `DIAGNOSED` $\to$ `ACTION_SELECTED` $\to$ `CANDIDATE_BUILT` $\to$ `EVALUATED` $\to$ `AWAITING_APPROVAL` $\to$ `CANARY`.
-  - **Issue 10 (Empirical Benchmark Hardening)**:
-    - Updated [`benchmark.py`](file:///home/streamliner/btp/backend/src/swayamkavach/experiments/benchmark.py): explicitly marked empirical reports with `is_simulation=False`, policy version (`dari-v1.0`), dataset version, and random seed.
-    - Added 95% Wilson score confidence intervals for cumulative attack recall across all evaluated policies.
+### [2026-10-19] — Comprehensive Code Review Hardening: Canary Routing, Candidate Verification, Credential Security & Atomic Calibration (106 Tests Green)
+- **Action**: Fully addressed all P0 and P1 findings from the senior code review of the 19 October commits. Eliminated all fail-open conditions, routing no-ops, secret defaults, and unverified deployment state advancements.
+- **Key Deliverables & Architectural Invariants**:
+  - **1. Real, Verifiable Canary Routing (P0)**:
+    - Updated [`canary.py`](file:///home/streamliner/btp/backend/src/swayamkavach/deployment/canary.py): eliminated no-op routing when `nginx_conf_path is None` by requiring an explicit adapter (`infra/nginx/nginx.conf` default) and failing closed (`RuntimeError`).
+    - Implemented 6-step transactional routing in `apply_and_verify_routing`: render candidate config $\to$ validate syntax $\to$ write candidate to `.tmp` file $\to$ validate with `nginx -t` if available $\to$ save backup content $\to$ atomic replace $\to$ execute `reload_nginx()` $\to$ verify runtime upstream weights.
+    - On reload or verification failure, restores previous backup file and records `RECONCILIATION_REQUIRED` in the database without modifying rollout state. Added `reload_hook` and `runtime_check_hook` for hermetic testing.
+  - **2. Candidate Pre-Flight Fail-Closed Invariants (P0)**:
+    - Updated `stage_candidate()` in [`canary.py`](file:///home/streamliner/btp/backend/src/swayamkavach/deployment/canary.py): requires artifact bundle (`pipeline.joblib`) and `manifest.json` on disk with matching SHA-256 digest before any traffic shift.
+    - Queries candidate serving slot `/identity` and strictly requires HTTP 200 and exact `reported_release == candidate_release`.
+    - Queries `/readyz` and strictly requires `is_ready is True` (no defaulting) and non-heuristic inference mode (`inference_mode not in ("heuristic", None)`).
+  - **3. Production Default-Credential Rejection & Operator Binding (P0)**:
+    - Updated [`auth.py`](file:///home/streamliner/btp/backend/src/swayamkavach/api/auth.py): enforced `validate_production_credential()` across all 7 credential variables (`CONTROL_PLANE_API_KEY`, `CONTROL_PLANE_SECRET_KEY`, `TELEMETRY_API_KEY`, `LABELS_API_KEY`, `EVALUATION_API_KEY`, `APPROVAL_API_KEY`, `DEPLOYMENT_API_KEY`).
+    - In production (`ENVIRONMENT in ('production', 'prod')`), startup fails if any key is missing, equals a known development default, or is $<32$ characters.
+    - Updated `/api/v1/evaluations/approve` in [`evaluation.py`](file:///home/streamliner/btp/backend/src/swayamkavach/api/routes/evaluation.py): derives audit operator identity from authenticated `operator_ctx.operator_id` (preventing unverified caller spoofing).
+  - **4. Atomic Transactional A1 Threshold Activation (P1)**:
+    - Updated `calibrate_node()` in [`graph.py`](file:///home/streamliner/btp/backend/src/swayamkavach/agents/graph.py): captures baseline threshold on each serving slot before initiating activation.
+    - Treats two-slot activation as a transaction: if one slot adopts the proposed threshold and the other slot fails, automatically executes rollback on the successful slot back to its baseline threshold and marks state as `ACTIVATION_FAILED`. If rollback fails, marks `ACTIVATION_DEGRADED`.
+    - Distinguishes offline serving slots (`CALIBRATION_COMPUTED`) from active activation failures.
+  - **5. Strict Durable Evaluation Report Persistence & Idempotency (P1)**:
+    - Updated `/api/v1/evaluations/compare` in [`evaluation.py`](file:///home/streamliner/btp/backend/src/swayamkavach/api/routes/evaluation.py): report persistence in `EvaluationReportRecordDB` is mandatory; database write failures raise HTTP 500 (fail closed).
+    - Removed in-memory `_latest_report` fallback from `/approve`; only durable reports stored in the database with `PASS` verdict can be approved.
+    - Enforced deliberate approval idempotency: exact replays for the same report and candidate digest return the existing approval record (`status: already_approved`); approvals with conflicting candidate digests are rejected with HTTP 409.
+  - **6. Event-Time Persistence Chronology (P1)**:
+    - Updated [`lifecycle.py`](file:///home/streamliner/btp/backend/src/swayamkavach/api/routes/lifecycle.py) and [`graph.py`](file:///home/streamliner/btp/backend/src/swayamkavach/agents/graph.py): passes UTC-normalized `window_end_at=window.end_time` into `record_and_compute_persistence()`.
+    - Added database unique constraint `unique=True` on `WindowDamageHistoryDB.window_id` in [`models.py`](file:///home/streamliner/btp/backend/src/swayamkavach/db/models.py).
+  - **7. A2 Leakage Prevention & Capture-Aware Splitting (P1)**:
+    - Updated [`adapter.py`](file:///home/streamliner/btp/backend/src/swayamkavach/dari/adapter.py): replaced random stratified shuffling with `GroupShuffleSplit` on `capture_id` / `session_id` (or chronological temporal split when capture IDs are absent), guaranteeing zero flow leakage between training and holdout sets.
+    - Manifest explicitly records `adaptation_paradigm: "localized_retraining_with_anchor_regularization"` and `split_strategy`.
 - **Diagnostics & Testing**:
-  - Created [`test_implementation_plan_all_issues.py`](file:///home/streamliner/btp/backend/tests/unit/test_implementation_plan_all_issues.py): 18 comprehensive tests passing.
-  - Updated [`test_canary_rollout.py`](file:///home/streamliner/btp/backend/tests/unit/test_canary_rollout.py): 11 tests passing.
-  - Full backend test suite (`pytest backend/tests -v`): **100 of 100 tests passed** (100% pass rate, 0 failures).
-  - Linting (`ruff check backend/src/swayamkavach`): **All checks passed**.
+  - Full backend test suite (`pytest tests/ -v`): **106 of 106 tests passed** (100% pass rate, 0 failures in 12.36s).
+  - Code hygiene (`ruff check src tests`): **All checks passed (0 errors)**.
 
 ### [2026-10-15] — Phase 9 Stabilization, Reproducible Release & Academic Handover Completed (Gate G9 Passed)
 - **Action**: Executed clean-room restore rehearsal, containerization hardening, comprehensive operational runbooks, academic project thesis, and timed demonstration script. Project achieved 100% completion across all 10 phases.

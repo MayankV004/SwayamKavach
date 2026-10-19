@@ -71,9 +71,10 @@ class LocalSubspaceAdapter:
         backend_dir: Path | None = None,
         releases_dir: Path | None = None,
         min_samples: int = 50,
+        output_dir: Path | None = None,
     ):
         self.backend_dir = backend_dir or Path(__file__).resolve().parent.parent.parent.parent
-        self.releases_dir = releases_dir or (self.backend_dir / "releases")
+        self.releases_dir = releases_dir or output_dir or (self.backend_dir / "releases")
         self.min_samples = min_samples
 
     def adapt(
@@ -169,11 +170,37 @@ class LocalSubspaceAdapter:
             adapted_pipeline = clone(champ_pipeline)
 
             # Split labeled localized window into train (70%) and holdout validation (30%)
+            # Prefer group-aware split (capture/session) or chronological temporal split over random shuffling
+            # to prevent network near-duplicate flow leakage between training and validation.
+            group_cols = [c for c in ("capture_id", "session_id", "flow_id", "conn_id", "capture_group", "device_id") if c in df_labeled.columns]
             if len(df_labeled) >= 10 and len(set(y_labeled)) > 1:
-                from sklearn.model_selection import train_test_split
-                x_train, x_val, y_train, y_val = train_test_split(
-                    df_labeled, y_labeled, test_size=0.30, random_state=42, stratify=y_labeled
-                )
+                if group_cols:
+                    from sklearn.model_selection import GroupShuffleSplit
+                    grp_col = group_cols[0]
+                    groups = df_labeled[grp_col].values
+                    # If enough distinct groups, partition by group
+                    if len(set(groups)) > 1:
+                        gss = GroupShuffleSplit(n_splits=1, test_size=0.30, random_state=42)
+                        train_idx, val_idx = next(gss.split(df_labeled, y_labeled, groups=groups))
+                        x_train, x_val = df_labeled.iloc[train_idx], df_labeled.iloc[val_idx]
+                        y_train, y_val = y_labeled[train_idx], y_labeled[val_idx]
+                    else:
+                        split_idx = max(1, int(len(df_labeled) * 0.70))
+                        x_train, x_val = df_labeled.iloc[:split_idx], df_labeled.iloc[split_idx:]
+                        y_train, y_val = y_labeled[:split_idx], y_labeled[split_idx:]
+                else:
+                    # Chronological temporal split (preserve order of capture/arrival)
+                    time_cols = [c for c in ("event_time", "timestamp", "ts") if c in df_labeled.columns]
+                    if time_cols:
+                        df_labeled = df_labeled.sort_values(by=time_cols[0]).reset_index(drop=True)
+                        y_labeled = np.array([int(y_arr[i]) for i in df_labeled.index])
+
+                    split_idx = max(1, int(len(df_labeled) * 0.70))
+                    # Ensure holdout contains at least one sample; fallback to 80/20 if too small
+                    if split_idx >= len(df_labeled):
+                        split_idx = len(df_labeled) - 1
+                    x_train, x_val = df_labeled.iloc[:split_idx], df_labeled.iloc[split_idx:]
+                    y_train, y_val = y_labeled[:split_idx], y_labeled[split_idx:]
             else:
                 x_train, x_val = df_labeled, df_labeled
                 y_train, y_val = y_labeled, y_labeled
@@ -224,6 +251,8 @@ class LocalSubspaceAdapter:
                 "model_version": f"a2-adapted-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}",
                 "repair_level": "A2",
                 "adaptation_method": "local_subspace_adaptation",
+                "adaptation_paradigm": "localized_retraining_with_anchor_regularization",
+                "split_strategy": "group_aware_or_chronological",
                 "champion_source": champion_release_id,
                 "bundle_file": "pipeline.joblib",
                 "bundle_sha256": bundle_sha,

@@ -49,6 +49,7 @@ class DARIState(TypedDict, total=False):
     evaluation_report: dict[str, Any] | None
     lifecycle_stage: str
     audit_trail: list[str]
+    window_end_at: str | None
     status: str
 
 
@@ -87,6 +88,7 @@ def monitor_node(state: DARIState) -> dict[str, Any]:
             "features_records": window.features_df.to_dict(orient="records"),
             "scores": window.scores,
             "y_true": window.y_true,
+            "window_end_at": window.end_time.isoformat(),
             "audit_trail": audit,
             "status": "monitored",
         }
@@ -124,6 +126,11 @@ def damage_node(state: DARIState) -> dict[str, Any]:
             q = calc_temp.compute_data_quality(df)
             valid_cnt = sum(1 for y in y_true if y is not None and not pd.isna(y)) if y_true else 0
             cov = valid_cnt / len(y_true) if (y_true and len(y_true) > 0) else 0.0
+            w_end_str = state.get("window_end_at")
+            w_end_dt = datetime.fromisoformat(w_end_str) if w_end_str else datetime.now(UTC)
+            if w_end_dt.tzinfo is None:
+                w_end_dt = w_end_dt.replace(tzinfo=UTC)
+
             persistence_count = tracker.record_and_compute_persistence(
                 db=db,
                 window_id=window_id,
@@ -133,6 +140,7 @@ def damage_node(state: DARIState) -> dict[str, Any]:
                 q=q,
                 l=0.95 * cov,
                 s=len(df),
+                window_end_at=w_end_dt,
             )
         finally:
             db.close()
@@ -221,18 +229,29 @@ def calibrate_node(state: DARIState) -> dict[str, Any]:
         )
         verified_slots: list[str] = []
         failed_slots: list[str] = []
-        contacted_slots: list[str] = []
+        unreachable_slots: list[str] = []
+        baseline_thresholds: dict[str, float] = {}
 
         try:
             import httpx
             with httpx.Client(timeout=2.0) as client:
+                # 1. Capture baseline thresholds prior to activation
+                for port, slot_name in [(8001, "Slot A"), (8002, "Slot B")]:
+                    try:
+                        probe_resp = client.get(f"http://127.0.0.1:{port}/readyz")
+                        if probe_resp.status_code == 200:
+                            t_val = float(probe_resp.json().get("threshold", 0.42))
+                            baseline_thresholds[slot_name] = t_val
+                    except Exception as b_exc:
+                        logger.debug("Failed to capture baseline threshold for %s: %s", slot_name, b_exc)
+
+                # 2. Attempt activation across slots
                 for port, slot_name in [(8001, "Slot A"), (8002, "Slot B")]:
                     try:
                         reload_resp = client.post(
                             f"http://127.0.0.1:{port}/reload",
                             params={"threshold": proposed_threshold},
                         )
-                        contacted_slots.append(slot_name)
                         if reload_resp.status_code == 200:
                             probe_resp = client.get(f"http://127.0.0.1:{port}/readyz")
                             if probe_resp.status_code == 200:
@@ -249,29 +268,65 @@ def calibrate_node(state: DARIState) -> dict[str, Any]:
                         else:
                             failed_slots.append(f"{slot_name} reload returned HTTP {reload_resp.status_code}")
                     except Exception as slot_exc:
+                        unreachable_slots.append(f"{slot_name} connection error: {slot_exc}")
                         logger.debug("Serving %s on port %s unreachable: %s", slot_name, port, slot_exc)
 
-            if len(verified_slots) == 2:
-                calibration_state = "ACTIVATION_VERIFIED"
-                confirmed_threshold = proposed_threshold
-                audit.append(
-                    f"ACTIVATION_VERIFIED: Calibrated threshold theta*={proposed_threshold:.3f} confirmed on all serving slots ({', '.join(verified_slots)})."
-                )
-            elif len(verified_slots) == 1:
-                calibration_state = "ACTIVATION_PARTIAL"
-                audit.append(
-                    f"ACTIVATION_PARTIAL: Calibrated threshold theta*={proposed_threshold:.3f} confirmed only on {verified_slots[0]}."
-                )
-            elif failed_slots:
-                calibration_state = "ACTIVATION_FAILED"
-                audit.append(
-                    f"ACTIVATION_FAILED: Serving slot failed activation: {'; '.join(failed_slots)}."
-                )
-            else:
-                calibration_state = "CALIBRATION_COMPUTED"
-                audit.append(
-                    f"CALIBRATION_COMPUTED: Serving slots offline; proposed threshold theta*={proposed_threshold:.3f} recorded in state (activation unconfirmed)."
-                )
+                # 3. Transactional evaluation
+                if len(verified_slots) == 2:
+                    calibration_state = "ACTIVATION_VERIFIED"
+                    confirmed_threshold = proposed_threshold
+                    audit.append(
+                        f"ACTIVATION_VERIFIED: Calibrated threshold theta*={proposed_threshold:.3f} confirmed on all serving slots ({', '.join(verified_slots)})."
+                    )
+                elif len(verified_slots) > 0 and (failed_slots or unreachable_slots):
+                    # Transaction failure: revert slots that successfully adopted new threshold back to baseline
+                    issues = failed_slots + unreachable_slots
+                    reverted_slots: list[str] = []
+                    revert_failures: list[str] = []
+                    for s_name in verified_slots:
+                        s_port = 8001 if s_name == "Slot A" else 8002
+                        prev_t = baseline_thresholds.get(s_name, 0.42)
+                        try:
+                            rev_reload = client.post(f"http://127.0.0.1:{s_port}/reload", params={"threshold": prev_t})
+                            rev_probe = client.get(f"http://127.0.0.1:{s_port}/readyz")
+                            if rev_reload.status_code == 200 and rev_probe.status_code == 200:
+                                rev_t = float(rev_probe.json().get("threshold", 0.0))
+                                if abs(rev_t - prev_t) < 0.01:
+                                    reverted_slots.append(s_name)
+                                else:
+                                    revert_failures.append(f"{s_name} revert mismatch ({rev_t} != {prev_t})")
+                            else:
+                                revert_failures.append(f"{s_name} revert HTTP error")
+                        except Exception as rev_exc:
+                            revert_failures.append(f"{s_name} revert error: {rev_exc}")
+
+                    if revert_failures:
+                        calibration_state = "ACTIVATION_DEGRADED"
+                        audit.append(
+                            f"ACTIVATION_DEGRADED: Threshold activation failed on {'; '.join(issues)}. "
+                            f"Slot rollback failed on {'; '.join(revert_failures)}. System in degraded heterogeneous state."
+                        )
+                    else:
+                        calibration_state = "ACTIVATION_FAILED"
+                        audit.append(
+                            f"ACTIVATION_FAILED: Threshold activation failed across slots ({'; '.join(issues)}). "
+                            f"Transaction aborted: successfully reverted {', '.join(reverted_slots)} back to baseline threshold."
+                        )
+                elif len(unreachable_slots) == 2 and not failed_slots:
+                    calibration_state = "CALIBRATION_COMPUTED"
+                    audit.append(
+                        f"CALIBRATION_COMPUTED: Serving slots offline; proposed threshold theta*={proposed_threshold:.3f} recorded in state (activation unconfirmed)."
+                    )
+                elif failed_slots and not verified_slots:
+                    calibration_state = "ACTIVATION_FAILED"
+                    audit.append(
+                        f"ACTIVATION_FAILED: Serving slot failed activation: {'; '.join(failed_slots)}."
+                    )
+                else:
+                    calibration_state = "CALIBRATION_COMPUTED"
+                    audit.append(
+                        f"CALIBRATION_COMPUTED: Serving slots offline; proposed threshold theta*={proposed_threshold:.3f} recorded in state (activation unconfirmed)."
+                    )
         except Exception as exc:
             calibration_state = "CALIBRATION_COMPUTED"
             audit.append(

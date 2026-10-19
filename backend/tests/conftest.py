@@ -53,18 +53,55 @@ def client(db_session):
     app.dependency_overrides.clear()
 
 
+TEST_RELEASES = [
+    "R2",
+    "R2-candidate",
+    "R2-unstable",
+    "R2-faulty",
+    "R2-zero-evidence",
+    "R2-all-benign",
+    "R2-all-attack",
+    "R2-nginx-missing",
+    "R2-bad-reload",
+    "R2-heuristic",
+]
+
+
+@pytest.fixture(autouse=True)
+def setup_test_candidate_artifacts():
+    """Ensure test candidate artifacts exist on disk so controller pre-flight verification passes."""
+    import json
+    import shutil
+    from pathlib import Path
+
+    backend_dir = Path(__file__).resolve().parent.parent
+    r1_dir = backend_dir / "releases" / "R1"
+    created_dirs = []
+    if r1_dir.exists():
+        for rel_id in TEST_RELEASES:
+            rel_dir = backend_dir / "releases" / rel_id
+            if not rel_dir.exists():
+                rel_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy(r1_dir / "pipeline.joblib", rel_dir / "pipeline.joblib")
+                with open(r1_dir / "manifest.json", encoding="utf-8") as f:
+                    m = json.load(f)
+                m["release_id"] = rel_id
+                with open(rel_dir / "manifest.json", "w", encoding="utf-8") as f:
+                    json.dump(m, f)
+                created_dirs.append(rel_dir)
+    yield
+    for d in created_dirs:
+        if d.name not in ("R2", "R2-candidate"):
+            shutil.rmtree(d, ignore_errors=True)
+
+
 @pytest.fixture(autouse=True)
 def mock_serving_slot_http(monkeypatch):
-    """Hermetic test isolation: mock candidate slot readiness probe and reload endpoint."""
+    """Hermetic test isolation: mock candidate slot readiness probe, identity, and reload endpoint."""
     from unittest.mock import MagicMock
 
-    mock_resp_ready = MagicMock()
-    mock_resp_ready.status_code = 200
-    mock_resp_ready.json.return_value = {"status": "ready", "is_ready": True, "inference_mode": "pipeline"}
-
-    mock_resp_reload = MagicMock()
-    mock_resp_reload.status_code = 200
-    mock_resp_reload.json.return_value = {"status": "reloaded"}
+    active_releases = {8001: "R1", 8002: "R2"}
+    active_thresholds = {8001: 0.42, 8002: 0.42}
 
     class MockHttpxClient:
         def __init__(self, *args, **kwargs):
@@ -77,9 +114,38 @@ def mock_serving_slot_http(monkeypatch):
             pass
 
         def get(self, url, **kwargs):
-            return mock_resp_ready
+            port = 8001 if "8001" in url else 8002
+            mock = MagicMock()
+            mock.status_code = 200
+            if "identity" in url:
+                mock.json.return_value = {
+                    "release_id": active_releases.get(port, "R2"),
+                    "status": "active",
+                }
+            elif "readyz" in url:
+                mock.json.return_value = {
+                    "status": "ready",
+                    "is_ready": True,
+                    "inference_mode": "pipeline",
+                    "threshold": active_thresholds.get(port, 0.42),
+                }
+            else:
+                mock.json.return_value = {"status": "ok"}
+            return mock
 
-        def post(self, url, **kwargs):
-            return mock_resp_reload
+        def post(self, url, params=None, json=None, **kwargs):
+            port = 8001 if "8001" in url else 8002
+            p = params or kwargs.get("params", {})
+            if p and "release_id" in p:
+                active_releases[port] = p["release_id"]
+            if p and "threshold" in p:
+                active_thresholds[port] = float(p["threshold"])
+            mock = MagicMock()
+            mock.status_code = 200
+            mock.json.return_value = {
+                "status": "reloaded",
+                "release_id": active_releases.get(port, "R2"),
+            }
+            return mock
 
     monkeypatch.setattr("httpx.Client", MockHttpxClient)

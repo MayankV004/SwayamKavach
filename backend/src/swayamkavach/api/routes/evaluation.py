@@ -120,7 +120,7 @@ def compare_candidate(
 
     _latest_report = report
 
-    # Persist evaluation report durably in database
+    # Persist evaluation report durably in database - fail closed if write fails
     try:
         report_record = EvaluationReportRecordDB(
             report_id=report.report_id,
@@ -145,7 +145,11 @@ def compare_candidate(
         db.commit()
     except Exception as exc:
         db.rollback()
-        logger.warning("Failed to persist EvaluationReportRecordDB: %s", exc)
+        logger.error("Failed to persist EvaluationReportRecordDB: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Durable evaluation report persistence failed: {exc}. Evaluation evidence could not be stored.",
+        ) from exc
 
     return report.to_dict()
 
@@ -159,37 +163,28 @@ def approve_candidate(
     """Approve a PASS evaluation report and cryptographically bind approval for canary staging.
 
     Rejects approval if evaluation verdict is FAIL or INCONCLUSIVE (DARI invariant).
-    Retrieves report from durable storage and validates candidate artifact on disk matches evaluation digest.
+    Retrieves report exclusively from durable storage (no in-memory fallback).
     Persists immutable cryptographic signature to ApprovedEvaluationRecordDB with 24h expiry.
     """
-    global _latest_report
-
-    # Retrieve report from durable database first, with fallback to in-memory
+    # Retrieve report exclusively from durable database
     report_record = (
         db.query(EvaluationReportRecordDB)
         .filter(EvaluationReportRecordDB.report_id == payload.report_id)
         .first()
     )
 
-    if report_record is not None:
-        candidate_release = report_record.candidate_release
-        champion_release = report_record.champion_release
-        expected_hash = report_record.approval_hash
-        verdict = report_record.verdict
-        rejection_reasons = report_record.rejection_reasons or []
-        eval_cand_sha = report_record.candidate_sha256
-    elif _latest_report is not None and _latest_report.report_id == payload.report_id:
-        candidate_release = _latest_report.candidate_release
-        champion_release = _latest_report.champion_release
-        expected_hash = _latest_report.approval_hash
-        verdict = _latest_report.verdict.value
-        rejection_reasons = _latest_report.rejection_reasons
-        eval_cand_sha = None
-    else:
+    if report_record is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Evaluation report {payload.report_id} not found in database or memory.",
+            detail=f"Evaluation report {payload.report_id} not found in durable storage. Only persisted reports can be approved.",
         )
+
+    candidate_release = report_record.candidate_release
+    champion_release = report_record.champion_release
+    expected_hash = report_record.approval_hash
+    verdict = report_record.verdict
+    rejection_reasons = report_record.rejection_reasons or []
+    eval_cand_sha = report_record.candidate_sha256
 
     if expected_hash != payload.approval_hash:
         raise HTTPException(
@@ -249,24 +244,67 @@ def approve_candidate(
             detail=f"Candidate manifest.json at {cand_manifest_path} is malformed JSON.",
         ) from exc
 
-    # Check for expired approval reuse
+    # Check operator identity: derive from authenticated context
+    if payload.operator_id and payload.operator_id != operator_ctx.operator_id and operator_ctx.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Operator identity mismatch: request payload specifies '{payload.operator_id}' "
+                f"but authenticated operator context is '{operator_ctx.operator_id}'."
+            ),
+        )
+    operator_id = operator_ctx.operator_id
+
+    # Check for existing approval on this report: enforce deliberate idempotency
     existing_approval = (
         db.query(ApprovedEvaluationRecordDB)
         .filter(ApprovedEvaluationRecordDB.report_id == payload.report_id)
         .first()
     )
-    if existing_approval and existing_approval.expires_at < datetime.now(UTC):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Approval for report {payload.report_id} has expired. Re-evaluation is required.",
-        )
+    if existing_approval:
+        now_dt = datetime.now(UTC)
+        expiry = existing_approval.expires_at
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=UTC)
+
+        if expiry < now_dt:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Approval for report {payload.report_id} expired at {expiry.isoformat()}. Re-evaluation is required.",
+            )
+
+        # Idempotent replay: if artifact hash matches, return existing valid approval without creating duplicate
+        if existing_approval.candidate_sha256 == cand_sha256:
+            logger.info(
+                "Idempotent approval request: report %s already approved for %s",
+                payload.report_id,
+                candidate_release,
+            )
+            return {
+                "status": "already_approved",
+                "candidate_release": existing_approval.candidate_release_id,
+                "candidate_slot": "B",
+                "canary_weight": 0.05,
+                "approved_by": existing_approval.operator_id,
+                "approved_at": existing_approval.created_at.isoformat(),
+                "expires_at": existing_approval.expires_at.isoformat(),
+                "candidate_sha256": existing_approval.candidate_sha256,
+                "approval_signature": existing_approval.approval_hash,
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Report {payload.report_id} was already approved with artifact digest "
+                    f"'{existing_approval.candidate_sha256}', but current candidate digest is '{cand_sha256}'."
+                ),
+            )
 
     # Expiry 24 hours from approval
     from datetime import timedelta
     now_dt = datetime.now(UTC)
     expires_at = now_dt + timedelta(hours=24)
     expires_at_iso = expires_at.isoformat()
-    operator_id = payload.operator_id or operator_ctx.operator_id
 
     # Generate HMAC-SHA256 signature
     sig = generate_approval_signature(

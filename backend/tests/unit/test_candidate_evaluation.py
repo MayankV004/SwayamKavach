@@ -178,7 +178,6 @@ def test_evaluation_approval_api_security_gates():
     init_db()
     client = TestClient(app)
 
-    import swayamkavach.api.routes.evaluation as eval_module
     from swayamkavach.evaluation.compare import EvaluationReport
 
     # 1. Attempting approval when latest report is FAIL must return HTTP 403
@@ -197,7 +196,40 @@ def test_evaluation_approval_api_security_gates():
         approval_hash="hash_fail_123",
         created_at=datetime.now(UTC).isoformat(),
     )
-    eval_module._latest_report = fail_report
+    from pathlib import Path
+
+    from swayamkavach.db.models import EvaluationReportRecordDB
+    from swayamkavach.db.session import SessionLocal
+    from swayamkavach.evaluation.compare import compute_sha256
+
+    backend_dir = Path(__file__).resolve().parent.parent.parent
+    r2_bundle = backend_dir / "releases" / "R2" / "pipeline.joblib"
+    r2_sha = compute_sha256(r2_bundle) if r2_bundle.exists() else "placeholder_sha256"
+
+    db = SessionLocal()
+    try:
+        db.merge(
+            EvaluationReportRecordDB(
+                report_id=fail_report.report_id,
+                champion_release=fail_report.champion_release,
+                candidate_release=fail_report.candidate_release,
+                champion_sha256="champ_sha",
+                candidate_sha256="cand_sha",
+                dataset_version="val.csv.gz",
+                evaluated_samples=fail_report.evaluated_samples,
+                verdict=fail_report.verdict.value,
+                p_value=fail_report.p_value,
+                statistically_significant=fail_report.statistically_significant,
+                rejection_reasons=fail_report.rejection_reasons,
+                champion_metrics=fail_report.champion_metrics,
+                candidate_metrics=fail_report.candidate_metrics,
+                per_class_recall=fail_report.per_class_recall_comparison,
+                approval_hash=fail_report.approval_hash,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
 
     # Unauthenticated request must return HTTP 401
     resp_unauth = client.post(
@@ -240,7 +272,30 @@ def test_evaluation_approval_api_security_gates():
         approval_hash="hash_pass_456",
         created_at=datetime.now(UTC).isoformat(),
     )
-    eval_module._latest_report = pass_report
+    db = SessionLocal()
+    try:
+        db.merge(
+            EvaluationReportRecordDB(
+                report_id=pass_report.report_id,
+                champion_release=pass_report.champion_release,
+                candidate_release=pass_report.candidate_release,
+                champion_sha256="champ_sha",
+                candidate_sha256=r2_sha,
+                dataset_version="val.csv.gz",
+                evaluated_samples=pass_report.evaluated_samples,
+                verdict=pass_report.verdict.value,
+                p_value=pass_report.p_value,
+                statistically_significant=pass_report.statistically_significant,
+                rejection_reasons=pass_report.rejection_reasons,
+                champion_metrics=pass_report.champion_metrics,
+                candidate_metrics=pass_report.candidate_metrics,
+                per_class_recall=pass_report.per_class_recall_comparison,
+                approval_hash=pass_report.approval_hash,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
 
     resp_pass = client.post(
         "/api/v1/evaluations/approve",
@@ -262,9 +317,11 @@ def test_evaluation_approval_api_security_gates():
 
 def test_candidate_approval_rejects_missing_bundle():
     """Verify approval fails closed with HTTP 400 when artifact bundle or manifest is missing."""
-    import swayamkavach.api.routes.evaluation as eval_module
     from starlette.testclient import TestClient
+
     from swayamkavach.api.main import app
+    from swayamkavach.db.models import EvaluationReportRecordDB
+    from swayamkavach.db.session import SessionLocal
     from swayamkavach.evaluation.compare import EvaluationReport
 
     client = TestClient(app)
@@ -283,7 +340,30 @@ def test_candidate_approval_rejects_missing_bundle():
         approval_hash="hash_missing_789",
         created_at=datetime.now(UTC).isoformat(),
     )
-    eval_module._latest_report = missing_report
+    db = SessionLocal()
+    try:
+        db.merge(
+            EvaluationReportRecordDB(
+                report_id=missing_report.report_id,
+                champion_release=missing_report.champion_release,
+                candidate_release=missing_report.candidate_release,
+                champion_sha256="champ_sha",
+                candidate_sha256="missing_sha",
+                dataset_version="val.csv.gz",
+                evaluated_samples=missing_report.evaluated_samples,
+                verdict=missing_report.verdict.value,
+                p_value=missing_report.p_value,
+                statistically_significant=missing_report.statistically_significant,
+                rejection_reasons=missing_report.rejection_reasons,
+                champion_metrics=missing_report.champion_metrics,
+                candidate_metrics=missing_report.candidate_metrics,
+                per_class_recall=missing_report.per_class_recall_comparison,
+                approval_hash=missing_report.approval_hash,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
 
     auth_headers = {"X-API-Key": "swayamkavach-control-plane-secret-key-v1"}
     resp = client.post(

@@ -170,7 +170,10 @@ def test_threshold_state_machine_partial_confirmation(monkeypatch):
         "audit_trail": [],
     }
     result = calibrate_node(state)
-    assert result["calibration_state"] == "ACTIVATION_PARTIAL"
+    assert result["calibration_state"] == "ACTIVATION_FAILED"
+    # Verify transactional revert: Slot A was rolled back to its baseline threshold 0.5
+    assert curr_t[0] == 0.5
+    assert result["calibration_result"]["confirmed_active_threshold"] is None
 
 
 def test_threshold_state_machine_neither_slot_responds(monkeypatch):
@@ -514,3 +517,221 @@ def test_empirical_benchmark_report_metadata():
     assert "recall_ci_lower" in ci
     assert "recall_ci_upper" in ci
     assert ci["recall_ci_lower"] <= ci["recall_ci_upper"]
+
+
+# ==============================================================================
+# Targeted Regression Tests for 19 October Review Findings
+# ==============================================================================
+
+def test_canary_controller_missing_adapter_fails_closed(setup_database):
+    """Canary controller without explicit routing adapter must fail closed without modifying rollout state."""
+    from swayamkavach.deployment.canary import CanaryController
+
+    db = setup_database
+    controller = CanaryController(nginx_conf_path=None)
+
+    with pytest.raises(RuntimeError, match="routing adapter not configured"):
+        controller.apply_and_verify_routing(active_slot="A", canary_weight=0.05)
+
+    # DB state must remain completely unadvanced
+    rec = db.query(LifecycleStateRecordDB).first()
+    assert rec.canary_weight == 0.0
+    assert rec.candidate_release is None
+    assert rec.active_slot == "A"
+
+
+def test_nginx_reload_failure_restores_backup_and_records_reconciliation(tmp_path, setup_database):
+    """If reload fails, controller must restore last known-good config and record RECONCILIATION_REQUIRED."""
+    from swayamkavach.deployment.canary import CanaryController
+
+    db = setup_database
+    conf_file = tmp_path / "nginx.conf"
+    initial_text = "# INITIAL KNOWN GOOD CONFIG\nupstream serving_backend {\n    server 127.0.0.1:8001 weight=100;\n}\n"
+    conf_file.write_text(initial_text)
+
+    def failing_reload():
+        raise RuntimeError("simulated nginx reload timeout / error")
+
+    controller = CanaryController(nginx_conf_path=conf_file, reload_hook=failing_reload)
+
+    with pytest.raises(RuntimeError, match="simulated nginx reload"):
+        controller.stage_candidate(db, candidate_release="R2-candidate", initial_weight=0.05)
+
+    # 1. Configuration file must be restored back to initial text
+    assert conf_file.read_text() == initial_text
+
+    # 2. Rollout state must record RECONCILIATION_REQUIRED
+    rec = db.query(LifecycleStateRecordDB).first()
+    assert rec.last_action is not None
+    assert "RECONCILIATION_REQUIRED" in rec.last_action
+
+
+def test_production_starts_rejects_missing_or_default_credentials(monkeypatch):
+    """In production mode, missing or default credentials for all roles must raise RuntimeError/ValueError."""
+    from swayamkavach.api.auth import validate_production_credentials
+
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("CONTROL_PLANE_API_KEY", "strong_control_plane_key_at_least_32_chars_123")
+    monkeypatch.setenv("CONTROL_PLANE_SECRET_KEY", "strong_control_plane_secret_at_least_32_chars_123")
+
+    # Missing TELEMETRY_API_KEY
+    monkeypatch.delenv("TELEMETRY_API_KEY", raising=False)
+    with pytest.raises((RuntimeError, ValueError), match="TELEMETRY_API_KEY must be explicitly configured"):
+        validate_production_credentials()
+
+    # Set valid telemetry, labels, evaluation, approval keys but leave DEPLOYMENT_API_KEY as default
+    monkeypatch.setenv("TELEMETRY_API_KEY", "strong_telemetry_key_at_least_32_characters_long_123")
+    monkeypatch.setenv("LABELS_API_KEY", "strong_labels_key_at_least_32_characters_long_123")
+    monkeypatch.setenv("EVALUATION_API_KEY", "strong_evaluation_key_at_least_32_characters_123")
+    monkeypatch.setenv("APPROVAL_API_KEY", "strong_approval_key_at_least_32_characters_long_123")
+    monkeypatch.setenv("DEPLOYMENT_API_KEY", "swayamkavach-deployment-dev-key")
+    with pytest.raises((RuntimeError, ValueError), match="DEPLOYMENT_API_KEY cannot use the default"):
+        validate_production_credentials()
+
+
+def test_evaluation_report_persistence_failure_returns_500(monkeypatch, setup_database):
+    """If database write of evaluation report fails, /compare must return HTTP 500 (fail closed)."""
+    client = TestClient(app)
+
+    def failing_commit(*args, **kwargs):
+        raise RuntimeError("simulated db disk full / write error")
+
+    monkeypatch.setattr("sqlalchemy.orm.Session.commit", failing_commit)
+
+    backend_dir = Path(__file__).resolve().parent.parent.parent
+    champ_bundle = backend_dir / "releases" / "R1" / "pipeline.joblib"
+    cand_bundle = backend_dir / "releases" / "R2" / "pipeline.joblib"
+
+    if champ_bundle.exists() and cand_bundle.exists():
+        resp = client.post(
+            "/api/v1/evaluations/compare",
+            json={
+                "champion_release_id": "R1",
+                "candidate_release_id": "R2",
+            },
+            headers={"X-API-Key": DEFAULT_DEV_KEY},
+        )
+        assert resp.status_code == 500
+        assert "persistence failed" in resp.json()["detail"].lower()
+
+
+def test_approval_replay_and_digest_conflict(setup_database):
+    """Approval must be idempotent for identical request, and reject digest conflict with HTTP 409."""
+    db = setup_database
+    client = TestClient(app)
+
+    now_dt = datetime.now(UTC)
+    exp_dt = now_dt + timedelta(hours=24)
+    backend_dir = Path(__file__).resolve().parent.parent.parent
+    r2_bundle = backend_dir / "releases" / "R2" / "pipeline.joblib"
+    cand_sha = compute_sha256(r2_bundle) if r2_bundle.exists() else "valid_sha256"
+
+    sig = generate_approval_signature(
+        report_id="EVAL_REPLAY_001",
+        candidate_release_id="R2",
+        candidate_sha256=cand_sha,
+        operator_id="lead_operator",
+        expires_at_iso=exp_dt.isoformat(),
+    )
+
+    report_rec = EvaluationReportRecordDB(
+        report_id="EVAL_REPLAY_001",
+        champion_release="R1",
+        candidate_release="R2",
+        champion_sha256="champ_sha",
+        candidate_sha256=cand_sha,
+        dataset_version="val.csv.gz",
+        evaluated_samples=500,
+        verdict="PASS",
+        p_value=0.001,
+        statistically_significant=True,
+        rejection_reasons=[],
+        champion_metrics={},
+        candidate_metrics={},
+        per_class_recall={},
+        approval_hash=sig,
+        policy_version="dari-v1.0",
+        created_at=now_dt,
+    )
+    db.merge(report_rec)
+    db.commit()
+
+    # First approval: 200 approved
+    resp1 = client.post(
+        "/api/v1/evaluations/approve",
+        json={"report_id": "EVAL_REPLAY_001", "approval_hash": sig, "operator_id": "lead_operator"},
+        headers={"X-API-Key": DEFAULT_DEV_KEY},
+    )
+    assert resp1.status_code == 200
+    assert resp1.json()["status"] == "approved"
+
+    # Second approval (exact replay): 200 idempotent
+    resp2 = client.post(
+        "/api/v1/evaluations/approve",
+        json={"report_id": "EVAL_REPLAY_001", "approval_hash": sig, "operator_id": "lead_operator"},
+        headers={"X-API-Key": DEFAULT_DEV_KEY},
+    )
+    assert resp2.status_code == 200
+    assert resp2.json()["status"] in ("approved", "already_approved")
+
+    # Third approval with conflicting candidate digest in DB: 409 Conflict
+    approved_rec = db.query(ApprovedEvaluationRecordDB).filter_by(report_id="EVAL_REPLAY_001").first()
+    approved_rec.candidate_sha256 = "mutated_sha256_different_from_current"
+    db.commit()
+
+    resp3 = client.post(
+        "/api/v1/evaluations/approve",
+        json={"report_id": "EVAL_REPLAY_001", "approval_hash": sig, "operator_id": "lead_operator"},
+        headers={"X-API-Key": DEFAULT_DEV_KEY},
+    )
+    assert resp3.status_code == 409
+    assert "already approved with artifact digest" in resp3.json()["detail"].lower()
+
+
+def test_a2_adapter_capture_group_no_leakage_between_train_and_holdout(tmp_path):
+    """A2 adaptation using capture-group split must strictly guarantee 0 overlap between train and holdout."""
+    import pandas as pd
+
+    from swayamkavach.dari.adapter import LocalSubspaceAdapter
+
+    # Generate synthetic capture-grouped streaming window
+    records = []
+    for cap_id in [f"session_{i}" for i in range(10)]:
+        for _ in range(20):
+            records.append({
+                "proto": "tcp",
+                "service": "http",
+                "conn_state": "SF",
+                "duration": 0.5,
+                "src_bytes": 100,
+                "dst_bytes": 200,
+                "missed_bytes": 0,
+                "src_pkts": 5,
+                "src_ip_bytes": 300,
+                "dst_pkts": 5,
+                "dst_ip_bytes": 300,
+                "dns_query": "-",
+                "ssl_version": "-",
+                "ssl_cipher": "-",
+                "label": 1 if "5" in cap_id or "6" in cap_id else 0,
+                "attack_type": "ddos" if "5" in cap_id or "6" in cap_id else "normal",
+                "capture_id": cap_id,
+            })
+    df_window = pd.DataFrame(records)
+
+    adapter = LocalSubspaceAdapter(output_dir=tmp_path)
+    res = adapter.adapt_candidate(
+        features=df_window,
+        y_true=df_window["label"].values,
+        candidate_release_id="R2-capture-test",
+    )
+
+    assert res.status == "SUCCESS"
+    manifest_path = tmp_path / "R2-capture-test" / "manifest.json"
+    assert manifest_path.exists()
+    with open(manifest_path, encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    assert manifest.get("adaptation_paradigm") == "localized_retraining_with_anchor_regularization"
+    assert "split_strategy" in manifest
+

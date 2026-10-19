@@ -1,4 +1,8 @@
+import json
+import shutil
+from pathlib import Path
 from unittest.mock import MagicMock
+
 import pytest
 from starlette.testclient import TestClient
 
@@ -7,17 +11,45 @@ from swayamkavach.db.models import LifecycleStateRecordDB
 from swayamkavach.db.session import SessionLocal, init_db
 from swayamkavach.deployment.canary import CanaryController, RolloutStatus
 
+TEST_RELEASES = [
+    "R2-candidate",
+    "R2-faulty",
+    "R2-zero-evidence",
+    "R2-all-benign",
+    "R2-all-attack",
+    "R2-nginx-missing",
+    "R2-bad-reload",
+    "R2-heuristic",
+]
+
+
+@pytest.fixture(autouse=True)
+def setup_test_candidate_artifacts():
+    """Ensure candidate artifacts exist on disk so controller pre-flight verification passes."""
+    backend_dir = Path(__file__).resolve().parent.parent.parent
+    r1_dir = backend_dir / "releases" / "R1"
+    created_dirs = []
+    for rel_id in TEST_RELEASES:
+        rel_dir = backend_dir / "releases" / rel_id
+        if not rel_dir.exists():
+            rel_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy(r1_dir / "pipeline.joblib", rel_dir / "pipeline.joblib")
+            with open(r1_dir / "manifest.json", encoding="utf-8") as f:
+                m = json.load(f)
+            m["release_id"] = rel_id
+            with open(rel_dir / "manifest.json", "w", encoding="utf-8") as f:
+                json.dump(m, f)
+            created_dirs.append(rel_dir)
+    yield
+    for d in created_dirs:
+        if d.name != "R2-candidate":
+            shutil.rmtree(d, ignore_errors=True)
+
 
 @pytest.fixture(autouse=True)
 def mock_serving_slot_http(monkeypatch):
-    """Hermetic test isolation: mock candidate slot readiness probe and reload endpoint."""
-    mock_resp_ready = MagicMock()
-    mock_resp_ready.status_code = 200
-    mock_resp_ready.json.return_value = {"status": "ready", "is_ready": True, "inference_mode": "pipeline"}
-
-    mock_resp_reload = MagicMock()
-    mock_resp_reload.status_code = 200
-    mock_resp_reload.json.return_value = {"status": "reloaded"}
+    """Hermetic test isolation: mock candidate slot readiness probe, identity, and reload endpoint."""
+    current_state = {"release_id": "R2-candidate"}
 
     class MockHttpxClient:
         def __init__(self, *args, **kwargs):
@@ -30,10 +62,31 @@ def mock_serving_slot_http(monkeypatch):
             pass
 
         def get(self, url, **kwargs):
-            return mock_resp_ready
+            resp = MagicMock()
+            resp.status_code = 200
+            if "identity" in url:
+                resp.json.return_value = {
+                    "status": "ready",
+                    "release_id": current_state["release_id"],
+                }
+            elif "readyz" in url:
+                resp.json.return_value = {
+                    "status": "ready",
+                    "is_ready": True,
+                    "inference_mode": "pipeline",
+                }
+            else:
+                resp.json.return_value = {"status": "ok"}
+            return resp
 
         def post(self, url, **kwargs):
-            return mock_resp_reload
+            resp = MagicMock()
+            resp.status_code = 200
+            params = kwargs.get("params", {})
+            if "release_id" in params:
+                current_state["release_id"] = params["release_id"]
+            resp.json.return_value = {"status": "reloaded"}
+            return resp
 
     monkeypatch.setattr("httpx.Client", MockHttpxClient)
 
@@ -79,9 +132,10 @@ def test_canary_staging_and_initial_weight(tmp_path):
 def _seed_candidate_canary_data(db: SessionLocal, release_id: str, n_attack: int = 8, n_benign: int = 15):
     """Helper to seed valid labeled observations for candidate health gate checks."""
     import uuid
+
     from swayamkavach.db.models import GroundTruthLabelRecordDB, PredictionRecordDB
 
-    for i in range(n_attack):
+    for _i in range(n_attack):
         eid = f"seed_att_{release_id}_{uuid.uuid4().hex[:12]}"
         db.add(PredictionRecordDB(
             event_id=eid,
@@ -93,7 +147,7 @@ def _seed_candidate_canary_data(db: SessionLocal, release_id: str, n_attack: int
         ))
         db.add(GroundTruthLabelRecordDB(event_id=eid, label=1))
 
-    for i in range(n_benign):
+    for _i in range(n_benign):
         eid = f"seed_ben_{release_id}_{uuid.uuid4().hex[:12]}"
         db.add(PredictionRecordDB(
             event_id=eid,
@@ -202,7 +256,6 @@ def test_canary_deployment_api_flow():
 
     auth_headers = {"X-API-Key": "swayamkavach-control-plane-secret-key-v1"}
 
-    import hashlib
     from datetime import UTC, datetime, timedelta
 
     from swayamkavach.api.auth import generate_approval_signature
@@ -419,7 +472,7 @@ def test_missing_nginx_configuration_path_fails_safely(tmp_path):
     nonexistent_conf = tmp_path / "nonexistent_dir" / "sub" / "nginx.conf"
 
     controller = CanaryController(nginx_conf_path=nonexistent_conf)
-    with pytest.raises(Exception):
+    with pytest.raises((RuntimeError, ValueError, FileNotFoundError)):
         controller.stage_candidate(db, candidate_release="R2-nginx-missing", initial_weight=0.05)
 
     db.close()
