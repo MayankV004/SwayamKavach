@@ -10,6 +10,9 @@ export default function CanaryPage() {
   const { lifecycle, actingCanary, canaryActionStatus, advanceCanary, rollbackCanary } =
     useDashboard();
 
+  const isSlotAPrimary = lifecycle.active_slot === "A";
+  const slotAIsChamp = isSlotAPrimary;
+
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in">
       {/* Dedicated Canary Controller Card */}
@@ -37,14 +40,30 @@ export default function CanaryPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-xs text-[#85818D] dark:text-[#A5A0AF]">
           <div className="p-3.5 rounded-xl bg-[#FAF9FC] dark:bg-[#1B1924] border border-[#EAE7ED] dark:border-[#282534]">
-            <span className="block text-[10px] uppercase font-bold text-[#85818D] dark:text-[#A5A0AF]">Primary Slot A</span>
+            <span className="block text-[10px] uppercase font-bold text-[#85818D] dark:text-[#A5A0AF]">
+              {slotAIsChamp ? "Primary Slot A (Active)" : "Standby Slot A (Staged)"}
+            </span>
             <span className="font-mono font-semibold text-xs text-[#25232B] dark:text-[#F2F1F6] block mt-0.5">http://localhost:8001</span>
-            <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">Champion Model ({lifecycle.champion_release})</span>
+            <span className={`block text-[10px] mt-1 font-medium ${slotAIsChamp ? "text-emerald-600 dark:text-emerald-400" : "text-[#85818D] dark:text-[#A5A0AF]"}`}>
+              {slotAIsChamp
+                ? `Champion Model (${lifecycle.champion_release})`
+                : lifecycle.candidate_release
+                ? `Candidate (${lifecycle.candidate_release})`
+                : "Warm Standby Ready"}
+            </span>
           </div>
           <div className="p-3.5 rounded-xl bg-[#FAF9FC] dark:bg-[#1B1924] border border-[#EAE7ED] dark:border-[#282534]">
-            <span className="block text-[10px] uppercase font-bold text-[#85818D] dark:text-[#A5A0AF]">Standby Slot B</span>
+            <span className="block text-[10px] uppercase font-bold text-[#85818D] dark:text-[#A5A0AF]">
+              {!slotAIsChamp ? "Primary Slot B (Active)" : "Standby Slot B (Staged)"}
+            </span>
             <span className="font-mono font-semibold text-xs text-[#25232B] dark:text-[#F2F1F6] block mt-0.5">http://localhost:8002</span>
-            <span className="block text-[10px] text-[#85818D] dark:text-[#A5A0AF] mt-1 font-medium">{lifecycle.candidate_release ? `Candidate (${lifecycle.candidate_release})` : "Warm Standby Ready"}</span>
+            <span className={`block text-[10px] mt-1 font-medium ${!slotAIsChamp ? "text-emerald-600 dark:text-emerald-400" : "text-[#85818D] dark:text-[#A5A0AF]"}`}>
+              {!slotAIsChamp
+                ? `Champion Model (${lifecycle.champion_release})`
+                : lifecycle.candidate_release
+                ? `Candidate (${lifecycle.candidate_release})`
+                : "Warm Standby Ready"}
+            </span>
           </div>
           <div className="p-3.5 rounded-xl bg-[#FAF9FC] dark:bg-[#1B1924] border border-[#EAE7ED] dark:border-[#282534]">
             <span className="block text-[10px] uppercase font-bold text-[#85818D] dark:text-[#A5A0AF]">Routing Control Plane</span>

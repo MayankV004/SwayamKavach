@@ -99,7 +99,7 @@ export function LangGraphDriftVisualizer({
       status: isRollback ? "Instant Warm Rollback" : isGateReject ? "Retained Champion" : "Candidate Staged",
       badgeVariant: isRollback ? ("destructive" as const) : ("default" as const),
       icon: isRollback ? RotateCcw : GitFork,
-      details: isRollback ? "Reverted to Slot A in < 1.0s" : "Slot A (:8001) / Slot B (:8002)",
+      details: isRollback ? "Reverted to Champion in < 1.0s" : "Slot A (:8001) / Slot B (:8002)",
       color: isRollback ? "border-red-500/40 bg-red-50/40 dark:bg-red-950/20 text-red-700 dark:text-red-300" : "border-[#EAE7ED] dark:border-[#282534] bg-white dark:bg-[#16151D] text-[#25232B] dark:text-[#F2F1F6]",
     },
   ];

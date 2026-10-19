@@ -73,6 +73,21 @@ export default function OverviewPage() {
       ? "Stage 3 (50%)"
       : "Stage 4 (100% Promoted)";
 
+  const isSlotAPrimary = lifecycle.active_slot === "A";
+  const slotAIsChamp = isSlotAPrimary;
+  const slotAWeight = slotAIsChamp ? champPct : canaryPct;
+  const slotBWeight = slotAIsChamp ? canaryPct : champPct;
+  const slotARelease = slotAIsChamp
+    ? `${lifecycle.champion_release} (Champion)`
+    : lifecycle.candidate_release
+    ? `${lifecycle.candidate_release} (Canary)`
+    : "Standby (Idle)";
+  const slotBRelease = !slotAIsChamp
+    ? `${lifecycle.champion_release} (Champion)`
+    : lifecycle.candidate_release
+    ? `${lifecycle.candidate_release} (Canary)`
+    : "Standby (Idle)";
+
 
 
   return (
@@ -411,17 +426,27 @@ export default function OverviewPage() {
               {/* Segmented Split Progress Bar */}
               <div className="mb-3.5">
                 <div className="flex items-center justify-between text-[11px] font-medium text-[#85818D] dark:text-[#A5A0AF] mb-1.5">
-                  <span>Slot A (Champion): <strong className="text-emerald-700 dark:text-emerald-400">{champPct}%</strong></span>
-                  <span>Slot B (Canary): <strong className="text-[#E76552]">{canaryPct}%</strong></span>
+                  <span>
+                    Slot A ({slotAIsChamp ? "Champion" : "Canary"}):{" "}
+                    <strong className={slotAIsChamp ? "text-emerald-700 dark:text-emerald-400" : "text-[#E76552]"}>
+                      {slotAWeight}%
+                    </strong>
+                  </span>
+                  <span>
+                    Slot B ({!slotAIsChamp ? "Champion" : "Canary"}):{" "}
+                    <strong className={!slotAIsChamp ? "text-emerald-700 dark:text-emerald-400" : "text-[#E76552]"}>
+                      {slotBWeight}%
+                    </strong>
+                  </span>
                 </div>
                 <div className="h-2 w-full bg-[#EAE7ED] dark:bg-[#282534] rounded-full overflow-hidden flex">
                   <div
-                    style={{ width: `${champPct}%` }}
-                    className="bg-emerald-500 h-full transition-all duration-300"
+                    style={{ width: `${slotAWeight}%` }}
+                    className={`${slotAIsChamp ? "bg-emerald-500" : "bg-[#E76552]"} h-full transition-all duration-300`}
                   />
                   <div
-                    style={{ width: `${canaryPct}%` }}
-                    className="bg-[#E76552] h-full transition-all duration-300"
+                    style={{ width: `${slotBWeight}%` }}
+                    className={`${!slotAIsChamp ? "bg-emerald-500" : "bg-[#E76552]"} h-full transition-all duration-300`}
                   />
                 </div>
               </div>
@@ -430,20 +455,20 @@ export default function OverviewPage() {
                 <div className="p-4 bg-white dark:bg-[#16151D] rounded-2xl border border-[#EAE7ED] dark:border-[#282534] shadow-2xs">
                   <div className="text-[#85818D] dark:text-[#A5A0AF] text-xs font-medium">Slot A (:8001)</div>
                   <div className="text-3xl font-extrabold text-[#25232B] dark:text-[#F2F1F6] mt-1 tabular-nums">
-                    {champPct}%
+                    {slotAWeight}%
                   </div>
-                  <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mt-1">
-                    {lifecycle.champion_release} (Champion)
+                  <div className={`text-xs font-bold mt-1 ${slotAIsChamp ? "text-emerald-700 dark:text-emerald-400" : "text-[#85818D] dark:text-[#A5A0AF]"}`}>
+                    {slotARelease}
                   </div>
                 </div>
 
                 <div className="p-4 bg-white dark:bg-[#16151D] rounded-2xl border border-[#EAE7ED] dark:border-[#282534] shadow-2xs">
                   <div className="text-[#85818D] dark:text-[#A5A0AF] text-xs font-medium">Slot B (:8002)</div>
                   <div className="text-3xl font-extrabold text-[#25232B] dark:text-[#F2F1F6] mt-1 tabular-nums">
-                    {canaryPct}%
+                    {slotBWeight}%
                   </div>
-                  <div className="text-xs font-bold text-[#85818D] dark:text-[#A5A0AF] mt-1">
-                    {lifecycle.candidate_release ? `${lifecycle.candidate_release} (Canary)` : "Standby (Idle)"}
+                  <div className={`text-xs font-bold mt-1 ${!slotAIsChamp ? "text-emerald-700 dark:text-emerald-400" : "text-[#85818D] dark:text-[#A5A0AF]"}`}>
+                    {slotBRelease}
                   </div>
                 </div>
               </div>

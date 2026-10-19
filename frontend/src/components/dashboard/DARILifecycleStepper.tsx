@@ -45,6 +45,9 @@ export function DARILifecycleStepper({
   const isGateRejection = scenarioResult?.scenario === "faulty_candidate_rejection";
   const isWatchdogRollback = scenarioResult?.scenario === "canary_watchdog_rollback";
 
+  const isSlotAPrimary = lifecycle.active_slot === "A";
+  const slotAIsChamp = isSlotAPrimary;
+
   const toggleStep = (stepIdx: number) => {
     setExpandedStep((prev) => (prev === stepIdx ? null : stepIdx));
   };
@@ -192,11 +195,15 @@ export function DARILifecycleStepper({
         ? `Canary ${canaryPct}%`
         : "Champion 100%",
       summary: isWatchdogRollback
-        ? "Watchdog detected latency/error SLA breach; 100% traffic instantly restored to Slot A"
+        ? "Watchdog detected latency/error SLA breach; 100% traffic instantly restored to Champion"
         : `Traffic staged 5% → 25% → 50% → 100% across Slot A (:8001) and Slot B (:8002)`,
       details: {
-        "Slot A (:8001)": `${100 - canaryPct}% (Champion ${lifecycle.champion_release})`,
-        "Slot B (:8002)": `${canaryPct}% (Candidate ${lifecycle.candidate_release || "None"})`,
+        "Slot A (:8001)": slotAIsChamp
+          ? `${100 - canaryPct}% (Champion ${lifecycle.champion_release})`
+          : `${canaryPct}% (${lifecycle.candidate_release ? `Candidate ${lifecycle.candidate_release}` : "Standby"})`,
+        "Slot B (:8002)": !slotAIsChamp
+          ? `${100 - canaryPct}% (Champion ${lifecycle.champion_release})`
+          : `${canaryPct}% (${lifecycle.candidate_release ? `Candidate ${lifecycle.candidate_release}` : "Standby"})`,
         "Automated Watchdog": isWatchdogRollback ? "Triggered Rollback on SLA breach" : "Monitoring error & latency gates",
         "Zero-Downtime Reversion": "Warm fallback instantly flips reverse proxy routing",
       },
