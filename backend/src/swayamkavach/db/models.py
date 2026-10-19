@@ -90,6 +90,9 @@ class LifecycleStateRecordDB(Base):
     candidate_release: Mapped[str] = mapped_column(String(64), nullable=True)
     candidate_slot: Mapped[str] = mapped_column(String(8), nullable=True)
     canary_weight: Mapped[float] = mapped_column(Float, default=0.0)
+    decision_threshold: Mapped[float | None] = mapped_column(Float, nullable=True, default=0.5)
+    proposed_threshold: Mapped[float | None] = mapped_column(Float, nullable=True)
+    threshold_state: Mapped[str] = mapped_column(String(64), default="DEFAULT")
     last_action: Mapped[str] = mapped_column(String(128), default="A0")
     last_fingerprint: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
@@ -122,7 +125,33 @@ class WindowDamageHistoryDB(Base):
     l: Mapped[float] = mapped_column(Float, nullable=False)  # noqa: E741
     s: Mapped[int] = mapped_column(Integer, nullable=False)
     is_anomalous: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    window_end_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), index=True)
+    sequence_num: Mapped[int] = mapped_column(Integer, default=0, index=True)
     evaluated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), index=True)
+
+
+class EvaluationReportRecordDB(Base):
+    """Persisted durable statistical evaluation report for champion vs candidate."""
+
+    __tablename__ = "evaluation_reports"
+
+    report_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    champion_release: Mapped[str] = mapped_column(String(64), nullable=False)
+    candidate_release: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    champion_sha256: Mapped[str] = mapped_column(String(128), nullable=False)
+    candidate_sha256: Mapped[str] = mapped_column(String(128), nullable=False)
+    dataset_version: Mapped[str] = mapped_column(String(128), default="val.csv.gz")
+    evaluated_samples: Mapped[int] = mapped_column(Integer, nullable=False)
+    verdict: Mapped[str] = mapped_column(String(32), nullable=False)
+    p_value: Mapped[float] = mapped_column(Float, nullable=False)
+    statistically_significant: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    rejection_reasons: Mapped[list] = mapped_column(JSON, default=list)
+    champion_metrics: Mapped[dict] = mapped_column(JSON, default=dict)
+    candidate_metrics: Mapped[dict] = mapped_column(JSON, default=dict)
+    per_class_recall: Mapped[dict] = mapped_column(JSON, default=dict)
+    approval_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    policy_version: Mapped[str] = mapped_column(String(64), default="dari-v1.0")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), index=True)
 
 
 class ApprovedEvaluationRecordDB(Base):
@@ -139,5 +168,6 @@ class ApprovedEvaluationRecordDB(Base):
     operator_id: Mapped[str] = mapped_column(String(128), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+
 
 

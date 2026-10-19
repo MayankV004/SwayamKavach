@@ -178,13 +178,13 @@ class LocalSubspaceAdapter:
                 x_train, x_val = df_labeled, df_labeled
                 y_train, y_val = y_labeled, y_labeled
 
-            # Load a small baseline anchor sample from val.csv.gz to prevent catastrophic forgetting
-            val_path = self.backend_dir / "data" / "processed" / "val.csv.gz"
-            if val_path.exists():
-                val_df = pd.read_csv(val_path, nrows=300)
-                anchor_cols = [c for c in x_train.columns if c in val_df.columns]
-                x_anchor = val_df[anchor_cols]
-                y_anchor = val_df["label"].values
+            # Load a baseline anchor sample from train.csv.gz (NOT validation) to prevent data leakage
+            train_path = self.backend_dir / "data" / "processed" / "train.csv.gz"
+            if train_path.exists():
+                train_df = pd.read_csv(train_path, nrows=300)
+                anchor_cols = [c for c in x_train.columns if c in train_df.columns]
+                x_anchor = train_df[anchor_cols]
+                y_anchor = train_df["label"].values
                 x_combined = pd.concat([x_train[anchor_cols], x_anchor], ignore_index=True)
                 y_combined = np.concatenate([y_train, y_anchor])
             else:
@@ -206,6 +206,17 @@ class LocalSubspaceAdapter:
             joblib.dump(adapted_pipeline, bundle_out, compress=3)
             bundle_sha = compute_sha256(bundle_out)
 
+            # Retrieve champion threshold to retain it unless explicit recalibration is chosen
+            champ_manifest_path = champ_dir / "manifest.json"
+            champ_thresh = 0.5
+            if champ_manifest_path.exists():
+                try:
+                    with open(champ_manifest_path, encoding="utf-8") as f:
+                        m_data = json.load(f)
+                    champ_thresh = float(m_data.get("decision_threshold", 0.5))
+                except Exception as exc:
+                    logger.warning("Could not parse champion threshold: %s", exc)
+
             # Save manifest
             manifest = {
                 "release_id": candidate_release_id,
@@ -216,7 +227,8 @@ class LocalSubspaceAdapter:
                 "champion_source": champion_release_id,
                 "bundle_file": "pipeline.joblib",
                 "bundle_sha256": bundle_sha,
-                "decision_threshold": 0.42,
+                "decision_threshold": champ_thresh,
+                "threshold_policy": "retained_from_champion",
                 "metrics": {
                     "holdout_recall": round(rec, 4),
                     "holdout_precision": round(prec, 4),

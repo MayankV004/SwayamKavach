@@ -24,7 +24,7 @@ from swayamkavach.dari.adapter import LocalSubspaceAdapter
 from swayamkavach.dari.calibrator import ThresholdCalibrator
 from swayamkavach.dari.retrainer import SubprocessRetrainer
 from swayamkavach.dari.selector import DARISolver, SelectionResult
-from swayamkavach.db.models import LifecycleStateRecordDB
+from swayamkavach.db.models import EvaluationReportRecordDB, LifecycleStateRecordDB
 from swayamkavach.db.session import SessionLocal
 from swayamkavach.monitoring.window import MonitoringWindow, WindowSelector
 
@@ -45,6 +45,9 @@ class DARIState(TypedDict, total=False):
     calibration_result: dict[str, Any] | None
     adaptation_result: dict[str, Any] | None
     retraining_result: dict[str, Any] | None
+    candidate_release_id: str | None
+    evaluation_report: dict[str, Any] | None
+    lifecycle_stage: str
     audit_trail: list[str]
     status: str
 
@@ -202,42 +205,105 @@ def calibrate_node(state: DARIState) -> dict[str, Any]:
     else:
         res = calibrator.calibrate(y_true=[], scores=[])
 
-    if res.meets_constraints and res.status == "SUCCESS":
+    calibration_state: str
+    proposed_threshold: float | None = None
+    confirmed_threshold: float | None = None
+
+    if not (res.meets_constraints and res.status == "SUCCESS"):
+        calibration_state = "CALIBRATION_INCONCLUSIVE"
         audit.append(
-            f"A1 Calibration complete: theta*={res.new_threshold:.3f} (Recall={res.recall:.4f}, FPR={res.fpr:.4f})"
+            f"A1 Calibration deferred ({res.status}): security constraints not satisfied or evidence missing. Current threshold retained."
         )
-        # Propagate hot threshold update to active model serving runtime with confirmation
+    else:
+        proposed_threshold = float(res.new_threshold)
+        audit.append(
+            f"A1 Calibration computed: proposed theta*={proposed_threshold:.3f} (Recall={res.recall:.4f}, FPR={res.fpr:.4f})"
+        )
         verified_slots: list[str] = []
+        failed_slots: list[str] = []
+        contacted_slots: list[str] = []
+
         try:
             import httpx
             with httpx.Client(timeout=2.0) as client:
                 for port, slot_name in [(8001, "Slot A"), (8002, "Slot B")]:
                     try:
-                        reload_resp = client.post(f"http://localhost:{port}/reload", params={"threshold": res.new_threshold})
+                        reload_resp = client.post(
+                            f"http://127.0.0.1:{port}/reload",
+                            params={"threshold": proposed_threshold},
+                        )
+                        contacted_slots.append(slot_name)
                         if reload_resp.status_code == 200:
-                            probe_resp = client.get(f"http://localhost:{port}/readyz")
+                            probe_resp = client.get(f"http://127.0.0.1:{port}/readyz")
                             if probe_resp.status_code == 200:
                                 probe_data = probe_resp.json()
-                                if abs(float(probe_data.get("threshold", 0.0)) - float(res.new_threshold)) < 0.01:
+                                active_t = float(probe_data.get("threshold", 0.0))
+                                if abs(active_t - proposed_threshold) < 0.01:
                                     verified_slots.append(slot_name)
+                                else:
+                                    failed_slots.append(
+                                        f"{slot_name} returned mismatched threshold {active_t} (expected {proposed_threshold})"
+                                    )
+                            else:
+                                failed_slots.append(f"{slot_name} readyz returned HTTP {probe_resp.status_code}")
+                        else:
+                            failed_slots.append(f"{slot_name} reload returned HTTP {reload_resp.status_code}")
                     except Exception as slot_exc:
                         logger.debug("Serving %s on port %s unreachable: %s", slot_name, port, slot_exc)
 
-            if verified_slots:
-                audit.append(f"Activated & verified calibrated threshold theta*={res.new_threshold:.3f} on {', '.join(verified_slots)}.")
+            if len(verified_slots) == 2:
+                calibration_state = "ACTIVATION_VERIFIED"
+                confirmed_threshold = proposed_threshold
+                audit.append(
+                    f"ACTIVATION_VERIFIED: Calibrated threshold theta*={proposed_threshold:.3f} confirmed on all serving slots ({', '.join(verified_slots)})."
+                )
+            elif len(verified_slots) == 1:
+                calibration_state = "ACTIVATION_PARTIAL"
+                audit.append(
+                    f"ACTIVATION_PARTIAL: Calibrated threshold theta*={proposed_threshold:.3f} confirmed only on {verified_slots[0]}."
+                )
+            elif failed_slots:
+                calibration_state = "ACTIVATION_FAILED"
+                audit.append(
+                    f"ACTIVATION_FAILED: Serving slot failed activation: {'; '.join(failed_slots)}."
+                )
             else:
-                audit.append(f"Serving slots offline; recorded calibrated threshold theta*={res.new_threshold:.3f} in state (activation unconfirmed).")
-        except Exception:
-            audit.append(f"Serving slot unreachable; recorded calibrated threshold theta*={res.new_threshold:.3f} in state (activation unconfirmed).")
-    else:
-        audit.append(
-            f"A1 Calibration deferred ({res.status}): security constraints not satisfied or evidence missing. Current threshold retained."
-        )
+                calibration_state = "CALIBRATION_COMPUTED"
+                audit.append(
+                    f"CALIBRATION_COMPUTED: Serving slots offline; proposed threshold theta*={proposed_threshold:.3f} recorded in state (activation unconfirmed)."
+                )
+        except Exception as exc:
+            calibration_state = "CALIBRATION_COMPUTED"
+            audit.append(
+                f"CALIBRATION_COMPUTED: Serving runtime communication error: {exc}. Proposed threshold theta*={proposed_threshold:.3f} recorded."
+            )
+
+    # Persist proposed vs confirmed threshold in DB record
+    db = SessionLocal()
+    try:
+        record = db.query(LifecycleStateRecordDB).first()
+        if record:
+            record.proposed_threshold = proposed_threshold
+            record.threshold_state = calibration_state
+            if calibration_state == "ACTIVATION_VERIFIED" and confirmed_threshold is not None:
+                record.decision_threshold = confirmed_threshold
+            db.commit()
+    except Exception as db_exc:
+        db.rollback()
+        logger.warning("Failed to persist threshold state in DB: %s", db_exc)
+    finally:
+        db.close()
+
+    cal_dict = res.to_dict()
+    cal_dict["calibration_state"] = calibration_state
+    cal_dict["proposed_threshold"] = proposed_threshold
+    cal_dict["confirmed_active_threshold"] = confirmed_threshold
 
     return {
-        "calibration_result": res.to_dict(),
+        "calibration_result": cal_dict,
+        "calibration_state": calibration_state,
         "audit_trail": audit,
-        "status": "calibrated" if res.meets_constraints else "calibration_inconclusive",
+        "status": calibration_state.lower(),
     }
 
 
@@ -257,14 +323,17 @@ def adapt_node(state: DARIState) -> dict[str, Any]:
         candidate_release_id=candidate_id,
     )
 
+    success = str(res.status).upper() == "SUCCESS"
     audit.append(
         f"A2 Adaptation {res.status} in {res.adaptation_duration_seconds}s for release {res.candidate_release_id}"
     )
 
     return {
+        "candidate_release_id": candidate_id if success else None,
         "adaptation_result": res.to_dict(),
         "audit_trail": audit,
-        "status": "adapted" if str(res.status).upper() == "SUCCESS" else "adaptation_deferred",
+        "lifecycle_stage": "CANDIDATE_BUILT" if success else "ADAPTATION_FAILED",
+        "status": "adapted" if success else "adaptation_deferred",
     }
 
 
@@ -277,15 +346,137 @@ def retrain_node(state: DARIState) -> dict[str, Any]:
     candidate_id = f"R2-candidate-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}"
 
     res = retrainer.retrain_candidate(candidate_release_id=candidate_id)
+    success = str(res.status).upper() == "SUCCESS"
     audit.append(
         f"A3 Retraining {res.status} in {res.training_duration_seconds}s for release {res.candidate_release_id}"
     )
 
     return {
+        "candidate_release_id": candidate_id if success else None,
         "retraining_result": res.to_dict(),
         "audit_trail": audit,
-        "status": "retrained" if str(res.status).upper() == "SUCCESS" else "retrain_failed",
+        "lifecycle_stage": "CANDIDATE_BUILT" if success else "RETRAIN_FAILED",
+        "status": "retrained" if success else "retrain_failed",
     }
+
+
+def evaluate_candidate_node(state: DARIState) -> dict[str, Any]:
+    """Node: Pairwise candidate statistical evaluation and non-regression gate check."""
+    from pathlib import Path
+
+    import joblib
+    import pandas as pd
+
+    from schemas.lifecycle import EvaluationVerdict
+    from swayamkavach.evaluation.compare import ModelComparator, compute_sha256
+
+    audit = list(state.get("audit_trail", []))
+    audit.append(f"[{datetime.now(UTC).isoformat()}] Entered EvaluateCandidateNode")
+
+    cand_id = state.get("candidate_release_id")
+    if not cand_id:
+        audit.append("No candidate artifact built; skipping evaluation.")
+        return {
+            "audit_trail": audit,
+            "lifecycle_stage": "EVALUATION_SKIPPED",
+            "status": "evaluation_skipped",
+        }
+
+    backend_dir = Path(__file__).resolve().parent.parent.parent.parent
+    champ_bundle = backend_dir / "releases" / "R1" / "pipeline.joblib"
+    cand_bundle = backend_dir / "releases" / cand_id / "pipeline.joblib"
+    val_csv = backend_dir / "data" / "processed" / "val.csv.gz"
+
+    if not cand_bundle.exists() or not champ_bundle.exists() or not val_csv.exists():
+        audit.append(f"Evaluation skipped: bundle or validation split missing for {cand_id}")
+        return {
+            "audit_trail": audit,
+            "lifecycle_stage": "EVALUATION_INCONCLUSIVE",
+            "status": "evaluation_inconclusive",
+        }
+
+    try:
+        champ_pipeline = joblib.load(champ_bundle)
+        cand_pipeline = joblib.load(cand_bundle)
+        val_df = pd.read_csv(val_csv)
+
+        comparator = ModelComparator()
+        report = comparator.compare(
+            champion_pipeline=champ_pipeline,
+            candidate_pipeline=cand_pipeline,
+            val_df=val_df,
+            champion_release="R1",
+            candidate_release=cand_id,
+        )
+
+        champ_sha = compute_sha256(champ_bundle)
+        cand_sha = compute_sha256(cand_bundle)
+
+        # Durably persist evaluation report
+        db = SessionLocal()
+        try:
+            report_record = EvaluationReportRecordDB(
+                report_id=report.report_id,
+                champion_release="R1",
+                candidate_release=cand_id,
+                champion_sha256=champ_sha,
+                candidate_sha256=cand_sha,
+                dataset_version="val.csv.gz",
+                evaluated_samples=report.evaluated_samples,
+                verdict=report.verdict.value,
+                p_value=float(report.p_value),
+                statistically_significant=bool(report.statistically_significant),
+                rejection_reasons=report.rejection_reasons,
+                champion_metrics=report.champion_metrics,
+                candidate_metrics=report.candidate_metrics,
+                per_class_recall=report.per_class_recall_comparison,
+                approval_hash=report.approval_hash,
+                policy_version="dari-v1.0",
+                created_at=datetime.now(UTC),
+            )
+            db.merge(report_record)
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            logger.warning("Failed to persist EvaluationReportRecordDB in evaluate_candidate_node: %s", exc)
+        finally:
+            db.close()
+
+        if report.verdict == EvaluationVerdict.PASS:
+            stage = "AWAITING_APPROVAL"
+            status = "evaluated_pass"
+            audit.append(
+                f"Candidate {cand_id} PASSED non-regression gates (report: {report.report_id}). Lifecycle stage: AWAITING_APPROVAL."
+            )
+        else:
+            stage = "CANDIDATE_REJECTED"
+            status = "evaluated_failed"
+            audit.append(
+                f"Candidate {cand_id} REJECTED by non-regression gates: {report.rejection_reasons}. Lifecycle stage: CANDIDATE_REJECTED."
+            )
+
+        return {
+            "evaluation_report": report.to_dict(),
+            "audit_trail": audit,
+            "lifecycle_stage": stage,
+            "status": status,
+        }
+    except Exception as exc:
+        logger.error("Error evaluating candidate: %s", exc)
+        audit.append(f"Candidate evaluation error: {exc}")
+        return {
+            "audit_trail": audit,
+            "lifecycle_stage": "EVALUATION_FAILED",
+            "status": "evaluation_failed",
+        }
+
+
+def candidate_build_router(state: DARIState) -> str:
+    """Route candidate to evaluation if successfully built, or skip to audit if build failed."""
+    stage = state.get("lifecycle_stage")
+    if stage == "CANDIDATE_BUILT" and state.get("candidate_release_id"):
+        return "evaluate_candidate"
+    return "audit"
 
 
 def audit_node(state: DARIState) -> dict[str, Any]:
@@ -349,6 +540,7 @@ def build_dari_graph() -> Any:
     workflow.add_node("calibrate", calibrate_node)
     workflow.add_node("adapt", adapt_node)
     workflow.add_node("retrain", retrain_node)
+    workflow.add_node("evaluate_candidate", evaluate_candidate_node)
     workflow.add_node("audit", audit_node)
 
     # Establish linear flow: Monitor -> Damage -> Selector
@@ -368,10 +560,27 @@ def build_dari_graph() -> Any:
         },
     )
 
+    # Conditional routing after Candidate Build (A2/A3)
+    workflow.add_conditional_edges(
+        "adapt",
+        candidate_build_router,
+        {
+            "evaluate_candidate": "evaluate_candidate",
+            "audit": "audit",
+        },
+    )
+    workflow.add_conditional_edges(
+        "retrain",
+        candidate_build_router,
+        {
+            "evaluate_candidate": "evaluate_candidate",
+            "audit": "audit",
+        },
+    )
+
     # Terminal convergence
     workflow.add_edge("calibrate", "audit")
-    workflow.add_edge("adapt", "audit")
-    workflow.add_edge("retrain", "audit")
+    workflow.add_edge("evaluate_candidate", "audit")
     workflow.add_edge("audit", END)
 
     return workflow.compile()

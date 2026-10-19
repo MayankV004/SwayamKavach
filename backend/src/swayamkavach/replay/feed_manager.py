@@ -8,6 +8,7 @@ Manages two independent continuous live feeds:
 from __future__ import annotations
 
 import logging
+import os
 import re
 import subprocess
 import threading

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from schemas.lifecycle import DamageFingerprint, LifecycleState, RepairAction
-from swayamkavach.api.auth import OperatorContext, require_control_plane_auth
+from swayamkavach.api.auth import OperatorContext, require_permission
 from swayamkavach.damage.calculator import DamageCalculator
 from swayamkavach.db.models import LifecycleStateRecordDB
 from swayamkavach.db.session import get_db
@@ -161,7 +161,7 @@ def get_lifecycle_state(
 @router.post("/reset", response_model=LifecycleState, status_code=status.HTTP_200_OK)
 def reset_lifecycle_state(
     db: Session = Depends(get_db),
-    _operator: OperatorContext = Depends(require_control_plane_auth),
+    _operator: OperatorContext = Depends(require_permission("lifecycle:reset")),
 ):
     """Reset lifecycle state to clean nominal baseline (Champion R1 on Slot A, Canary 0%)."""
     record = db.query(LifecycleStateRecordDB).first()

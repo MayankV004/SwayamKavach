@@ -1,6 +1,5 @@
 """Candidate evaluation and gate approval API endpoints."""
 
-import hashlib
 import json
 import logging
 from datetime import UTC, datetime
@@ -13,15 +12,17 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
-from schemas.lifecycle import EvaluationVerdict
 from swayamkavach.api.auth import (
     OperatorContext,
     generate_approval_signature,
-    require_control_plane_auth,
+    require_permission,
 )
-from swayamkavach.db.models import ApprovedEvaluationRecordDB, LifecycleStateRecordDB
+from swayamkavach.db.models import (
+    ApprovedEvaluationRecordDB,
+    EvaluationReportRecordDB,
+)
 from swayamkavach.db.session import get_db
-from swayamkavach.evaluation.compare import EvaluationReport, ModelComparator
+from swayamkavach.evaluation.compare import EvaluationReport, ModelComparator, compute_sha256
 
 logger = logging.getLogger("swayamkavach.api.evaluation")
 router = APIRouter(prefix="/evaluations", tags=["Evaluation"])
@@ -52,11 +53,12 @@ _latest_report: EvaluationReport | None = None
 @router.post("/compare", response_model=dict[str, Any], status_code=status.HTTP_200_OK)
 def compare_candidate(
     payload: EvaluateCandidateRequest,
-    _operator: OperatorContext = Depends(require_control_plane_auth),
+    db: Session = Depends(get_db),
+    _operator: OperatorContext = Depends(require_permission("evaluation:run")),
 ):
     """Run paired statistical comparison between Champion and Candidate model.
 
-    Enforces hard non-regression gates and outputs PASS / FAIL / INCONCLUSIVE report.
+    Enforces hard non-regression gates and persists durable report to database.
     """
     global _latest_report
 
@@ -84,6 +86,9 @@ def compare_candidate(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Validation dataset not found at {val_csv}",
         )
+
+    champ_sha = compute_sha256(champ_pipeline_path)
+    cand_sha = compute_sha256(cand_pipeline_path)
 
     champ_pipeline = joblib.load(champ_pipeline_path)
     cand_pipeline = joblib.load(cand_pipeline_path)
@@ -114,6 +119,34 @@ def compare_candidate(
     )
 
     _latest_report = report
+
+    # Persist evaluation report durably in database
+    try:
+        report_record = EvaluationReportRecordDB(
+            report_id=report.report_id,
+            champion_release=report.champion_release,
+            candidate_release=report.candidate_release,
+            champion_sha256=champ_sha,
+            candidate_sha256=cand_sha,
+            dataset_version="val.csv.gz",
+            evaluated_samples=report.evaluated_samples,
+            verdict=report.verdict.value,
+            p_value=float(report.p_value),
+            statistically_significant=bool(report.statistically_significant),
+            rejection_reasons=report.rejection_reasons,
+            champion_metrics=report.champion_metrics,
+            candidate_metrics=report.candidate_metrics,
+            per_class_recall=report.per_class_recall_comparison,
+            approval_hash=report.approval_hash,
+            policy_version="dari-v1.0",
+            created_at=datetime.now(UTC),
+        )
+        db.merge(report_record)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.warning("Failed to persist EvaluationReportRecordDB: %s", exc)
+
     return report.to_dict()
 
 
@@ -121,37 +154,61 @@ def compare_candidate(
 def approve_candidate(
     payload: ApprovalRequest,
     db: Session = Depends(get_db),
-    operator_ctx: OperatorContext = Depends(require_control_plane_auth),
+    operator_ctx: OperatorContext = Depends(require_permission("evaluation:approve")),
 ):
     """Approve a PASS evaluation report and cryptographically bind approval for canary staging.
 
     Rejects approval if evaluation verdict is FAIL or INCONCLUSIVE (DARI invariant).
+    Retrieves report from durable storage and validates candidate artifact on disk matches evaluation digest.
     Persists immutable cryptographic signature to ApprovedEvaluationRecordDB with 24h expiry.
     """
     global _latest_report
 
-    if _latest_report is None or _latest_report.report_id != payload.report_id:
+    # Retrieve report from durable database first, with fallback to in-memory
+    report_record = (
+        db.query(EvaluationReportRecordDB)
+        .filter(EvaluationReportRecordDB.report_id == payload.report_id)
+        .first()
+    )
+
+    if report_record is not None:
+        candidate_release = report_record.candidate_release
+        champion_release = report_record.champion_release
+        expected_hash = report_record.approval_hash
+        verdict = report_record.verdict
+        rejection_reasons = report_record.rejection_reasons or []
+        eval_cand_sha = report_record.candidate_sha256
+    elif _latest_report is not None and _latest_report.report_id == payload.report_id:
+        candidate_release = _latest_report.candidate_release
+        champion_release = _latest_report.champion_release
+        expected_hash = _latest_report.approval_hash
+        verdict = _latest_report.verdict.value
+        rejection_reasons = _latest_report.rejection_reasons
+        eval_cand_sha = None
+    else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Evaluation report {payload.report_id} not found or expired.",
+            detail=f"Evaluation report {payload.report_id} not found in database or memory.",
         )
 
-    if _latest_report.approval_hash != payload.approval_hash:
+    if expected_hash != payload.approval_hash:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Approval hash mismatch. Potential tampering detected.",
         )
 
-    if _latest_report.verdict != EvaluationVerdict.PASS:
+    if verdict != "PASS":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Cannot approve candidate with verdict {_latest_report.verdict.value}. "
-                   f"Only PASS candidates may enter canary staging. Rejections: {_latest_report.rejection_reasons}",
+            detail=(
+                f"Cannot approve candidate with verdict {verdict}. "
+                f"Only PASS candidates may enter canary staging. Rejections: {rejection_reasons}"
+            ),
         )
 
     # Verify candidate bundle and manifest exist and calculate SHA-256 digest
     backend_dir = Path(__file__).resolve().parent.parent.parent.parent.parent
-    cand_rel_dir = backend_dir / "releases" / _latest_report.candidate_release
+    cand_rel_dir = backend_dir / "releases" / candidate_release
     cand_bundle = cand_rel_dir / "pipeline.joblib"
     cand_manifest_path = cand_rel_dir / "manifest.json"
 
@@ -164,23 +221,44 @@ def approve_candidate(
             ),
         )
 
-    with open(cand_bundle, "rb") as f:
-        cand_sha256 = hashlib.sha256(f.read()).hexdigest()
+    cand_sha256 = compute_sha256(cand_bundle)
+
+    # Invariant: reject approval if candidate artifact bundle was replaced/mutated after evaluation
+    if eval_cand_sha is not None and cand_sha256 != eval_cand_sha:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Candidate artifact has mutated since evaluation was conducted! "
+                f"Evaluated SHA: {eval_cand_sha}, Current Disk SHA: {cand_sha256}. Re-evaluation is strictly required."
+            ),
+        )
 
     # Validate manifest digest matches bundle
     try:
         with open(cand_manifest_path, encoding="utf-8") as f:
             cand_m = json.load(f)
-            expected_sha = cand_m.get("bundle_sha256")
-            if expected_sha and expected_sha != cand_sha256:
+            expected_manifest_sha = cand_m.get("bundle_sha256")
+            if expected_manifest_sha and expected_manifest_sha != cand_sha256:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Candidate artifact digest mismatch: actual {cand_sha256} != manifest {expected_sha}",
+                    detail=f"Candidate artifact digest mismatch: actual {cand_sha256} != manifest {expected_manifest_sha}",
                 )
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Candidate manifest.json at {cand_manifest_path} is malformed JSON.",
+        ) from exc
+
+    # Check for expired approval reuse
+    existing_approval = (
+        db.query(ApprovedEvaluationRecordDB)
+        .filter(ApprovedEvaluationRecordDB.report_id == payload.report_id)
+        .first()
+    )
+    if existing_approval and existing_approval.expires_at < datetime.now(UTC):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Approval for report {payload.report_id} has expired. Re-evaluation is required.",
         )
 
     # Expiry 24 hours from approval
@@ -192,8 +270,8 @@ def approve_candidate(
 
     # Generate HMAC-SHA256 signature
     sig = generate_approval_signature(
-        report_id=_latest_report.report_id,
-        candidate_release_id=_latest_report.candidate_release,
+        report_id=payload.report_id,
+        candidate_release_id=candidate_release,
         candidate_sha256=cand_sha256,
         operator_id=operator_id,
         expires_at_iso=expires_at_iso,
@@ -201,10 +279,10 @@ def approve_candidate(
 
     # Persist cryptographic approval record
     approved_record = ApprovedEvaluationRecordDB(
-        report_id=_latest_report.report_id,
-        candidate_release_id=_latest_report.candidate_release,
-        champion_release_id=_latest_report.champion_release,
-        verdict=_latest_report.verdict.value,
+        report_id=payload.report_id,
+        candidate_release_id=candidate_release,
+        champion_release_id=champion_release,
+        verdict=verdict,
         candidate_sha256=cand_sha256,
         approval_hash=sig,
         operator_id=operator_id,
@@ -220,13 +298,13 @@ def approve_candidate(
     canary_ctrl = CanaryController()
     state = canary_ctrl.stage_candidate(
         db,
-        candidate_release=_latest_report.candidate_release,
+        candidate_release=candidate_release,
         initial_weight=0.05,
     )
 
     logger.info(
         "Candidate %s approved by %s (HMAC sig: %s...). Staged to Slot %s with canary weight 5%%",
-        _latest_report.candidate_release,
+        candidate_release,
         operator_id,
         sig[:12],
         state.candidate_slot,
@@ -234,7 +312,7 @@ def approve_candidate(
 
     return {
         "status": "approved",
-        "candidate_release": _latest_report.candidate_release,
+        "candidate_release": candidate_release,
         "candidate_slot": state.candidate_slot,
         "canary_weight": state.canary_weight,
         "approved_by": operator_id,
@@ -246,8 +324,33 @@ def approve_candidate(
 
 
 @router.get("/latest", response_model=dict[str, Any], status_code=status.HTTP_200_OK)
-def get_latest_report():
-    """Retrieve the most recent candidate evaluation report."""
-    if _latest_report is None:
-        return {"status": "no_evaluation_run"}
-    return _latest_report.to_dict()
+def get_latest_report(db: Session = Depends(get_db)):
+    """Retrieve the most recent candidate evaluation report from memory or database."""
+    global _latest_report
+    if _latest_report is not None:
+        return _latest_report.to_dict()
+
+    from sqlalchemy import desc
+    record = (
+        db.query(EvaluationReportRecordDB)
+        .order_by(desc(EvaluationReportRecordDB.created_at))
+        .first()
+    )
+    if record is not None:
+        return {
+            "report_id": record.report_id,
+            "champion_release": record.champion_release,
+            "candidate_release": record.candidate_release,
+            "verdict": record.verdict,
+            "p_value": record.p_value,
+            "statistically_significant": record.statistically_significant,
+            "rejection_reasons": record.rejection_reasons,
+            "champion_metrics": record.champion_metrics,
+            "candidate_metrics": record.candidate_metrics,
+            "per_class_recall_comparison": record.per_class_recall,
+            "evaluated_samples": record.evaluated_samples,
+            "approval_hash": record.approval_hash,
+            "created_at": record.created_at.isoformat(),
+        }
+
+    return {"status": "no_evaluation_run"}

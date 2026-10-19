@@ -107,6 +107,10 @@ class BenchmarkReport:
     summary_verdict: str
     created_at: str
     is_simulation: bool = True
+    seed: int | None = None
+    policy_version: str = "dari-v1.0"
+    dataset_version: str = "val.csv.gz"
+    confidence_intervals: dict[str, dict[str, float]] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -117,6 +121,10 @@ class BenchmarkReport:
             "summary_verdict": self.summary_verdict,
             "created_at": self.created_at,
             "is_simulation": self.is_simulation,
+            "seed": self.seed,
+            "policy_version": self.policy_version,
+            "dataset_version": self.dataset_version,
+            "confidence_intervals": self.confidence_intervals or {},
         }
 
 
@@ -740,9 +748,22 @@ class EmpiricalBenchmarkRunner:
                 mean_recovery_time_s=round(mean_rec_time, 3),
             )
 
+        # Calculate 95% Wilson confidence intervals for recall across evaluated policies
+        ci_dict: dict[str, dict[str, float]] = {}
+        for p in policies:
+            st = stats[p]
+            n_att = st["total_attacks"]
+            r_val = res_dict[p.value].cumulative_recall
+            err = 1.96 * float(np.sqrt(max(0.0, r_val * (1.0 - r_val)) / max(1, n_att)))
+            ci_dict[p.value] = {
+                "recall_ci_lower": round(max(0.0, r_val - err), 4),
+                "recall_ci_upper": round(min(1.0, r_val + err), 4),
+            }
+
         dari_res = res_dict[PolicyType.DARI.value]
         verdict = (
             f"Empirical evaluation: DARI achieved {dari_res.cumulative_recall*100:.1f}% cumulative attack recall "
+            f"(95% CI [{ci_dict[PolicyType.DARI.value]['recall_ci_lower']*100:.1f}%, {ci_dict[PolicyType.DARI.value]['recall_ci_upper']*100:.1f}%]) "
             f"with {dari_res.full_retrain_count} retrains, saving {dari_res.compute_savings_pct:.1f}% compute time "
             f"and {dari_res.label_savings_pct:.1f}% label requests vs Periodic Retraining."
         )
@@ -755,4 +776,8 @@ class EmpiricalBenchmarkRunner:
             summary_verdict=verdict,
             created_at=datetime.now(UTC).isoformat(),
             is_simulation=False,
+            seed=seed,
+            policy_version="dari-v1.0",
+            dataset_version="val.csv.gz",
+            confidence_intervals=ci_dict,
         )

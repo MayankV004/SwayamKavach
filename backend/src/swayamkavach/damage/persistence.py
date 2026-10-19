@@ -54,10 +54,14 @@ class PersistenceTracker:
         return False
 
     def _compute_distinct_persistence(self, db: Session) -> int:
-        """Calculate consecutive anomalous windows across distinct windows in reverse chronological order."""
+        """Calculate consecutive anomalous windows across distinct windows ordered by event time."""
         stmt = (
             select(WindowDamageHistoryDB)
-            .order_by(desc(WindowDamageHistoryDB.evaluated_at), desc(WindowDamageHistoryDB.id))
+            .order_by(
+                desc(WindowDamageHistoryDB.window_end_at),
+                desc(WindowDamageHistoryDB.sequence_num),
+                desc(WindowDamageHistoryDB.id),
+            )
             .limit(100)
         )
         records = db.execute(stmt).scalars().all()
@@ -91,8 +95,16 @@ class PersistenceTracker:
         l: float,  # noqa: E741
         s: int,
         is_anom: bool | None = None,
+        window_end_at: datetime | None = None,
+        sequence_num: int | None = None,
     ) -> int:
-        """Persist window damage record idempotently and return current consecutive persistence count R."""
+        """Persist window damage record idempotently and return current consecutive persistence count R.
+
+        Chronology Safety Invariant:
+          - Ordering uses window_end_at (event time) or monotonic sequence_num.
+          - Reprocessing an old window updates its evaluated_at, but preserves its original window_end_at.
+          - An old window never jumps ahead of genuinely newer windows.
+        """
         if is_anom is None:
             is_anom = self.is_anomalous(d_x=d_x, d_y=d_y, d_b=d_b)
 
@@ -110,8 +122,21 @@ class PersistenceTracker:
             existing.s = int(s)
             existing.is_anomalous = bool(is_anom)
             existing.evaluated_at = datetime.now(UTC)
+            # Only update event time/sequence if explicitly requested; never inadvertently advance chronology
+            if window_end_at is not None:
+                existing.window_end_at = window_end_at
+            if sequence_num is not None:
+                existing.sequence_num = sequence_num
             db.commit()
         else:
+            if sequence_num is None:
+                from sqlalchemy import func
+                max_seq = db.query(func.max(WindowDamageHistoryDB.sequence_num)).scalar() or 0
+                seq = max_seq + 1
+            else:
+                seq = sequence_num
+
+            event_time = window_end_at if window_end_at is not None else datetime.now(UTC)
             record = WindowDamageHistoryDB(
                 window_id=window_id,
                 d_x=float(d_x),
@@ -121,6 +146,8 @@ class PersistenceTracker:
                 l=float(l),
                 s=int(s),
                 is_anomalous=bool(is_anom),
+                window_end_at=event_time,
+                sequence_num=seq,
                 evaluated_at=datetime.now(UTC),
             )
             db.add(record)
@@ -146,6 +173,8 @@ class PersistenceTracker:
         s: int,
         d_y: float | None = None,
         is_anomalous: bool | None = None,
+        window_end_at: datetime | None = None,
+        sequence_num: int | None = None,
     ) -> int:
         """Alias for record_and_compute_persistence."""
         return self.record_and_compute_persistence(
@@ -158,6 +187,8 @@ class PersistenceTracker:
             l=l,
             s=s,
             is_anom=is_anomalous,
+            window_end_at=window_end_at,
+            sequence_num=sequence_num,
         )
 
     def get_current_persistence(self, db: Session) -> int:

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from swayamkavach.api.auth import (
     OperatorContext,
-    require_control_plane_auth,
+    require_permission,
     verify_approval_signature,
 )
 from swayamkavach.db.models import ApprovedEvaluationRecordDB
@@ -53,7 +53,7 @@ def get_deployment_state(db: Session = Depends(get_db)):
 def stage_candidate(
     payload: StageCandidateRequest,
     db: Session = Depends(get_db),
-    operator_ctx: OperatorContext = Depends(require_control_plane_auth),
+    operator_ctx: OperatorContext = Depends(require_permission("deployment:manage")),
 ):
     """Stage approved candidate into inactive slot with initial canary weight (5%).
 
@@ -143,12 +143,12 @@ def stage_candidate(
 @router.post("/canary/advance", response_model=dict[str, Any], status_code=status.HTTP_200_OK)
 def advance_canary_stage(
     db: Session = Depends(get_db),
-    operator_ctx: OperatorContext = Depends(require_control_plane_auth),
+    operator_ctx: OperatorContext = Depends(require_permission("deployment:manage")),
 ):
     """Advance canary traffic weight to next stage (5% -> 25% -> 50% -> 100%).
 
     When advancing past 50%, automatically promotes candidate to champion!
-    Requires authenticated operator control-plane authorization.
+    Requires deployment:manage operator authorization.
     """
     try:
         state = controller.advance_stage(db)
@@ -164,11 +164,11 @@ def advance_canary_stage(
 def trigger_rollback(
     payload: RollbackRequest,
     db: Session = Depends(get_db),
-    operator_ctx: OperatorContext = Depends(require_control_plane_auth),
+    operator_ctx: OperatorContext = Depends(require_permission("deployment:manage")),
 ):
     """Execute immediate zero-downtime warm rollback to champion.
 
-    Requires authenticated operator control-plane authorization.
+    Requires deployment:manage operator authorization.
     """
     state = controller.warm_rollback(db, reason=payload.reason)
     return state.to_dict()

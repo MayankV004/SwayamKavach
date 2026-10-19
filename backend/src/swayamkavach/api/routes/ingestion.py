@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from schemas.ingestion import BatchIngestRequest, BatchReceiptResponse
-from swayamkavach.api.auth import OperatorContext, require_control_plane_auth
+from swayamkavach.api.auth import OperatorContext, require_permission
 from swayamkavach.db.models import FlowEventRecordDB, IngestionBatchRecordDB
 from swayamkavach.db.session import get_db
 
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/ingestion", tags=["Ingestion"])
 def ingest_batch(
     payload: BatchIngestRequest,
     db: Session = Depends(get_db),
-    _operator: OperatorContext = Depends(require_control_plane_auth),
+    _operator: OperatorContext = Depends(require_permission("telemetry:write")),
 ):
     """Accept and durably persist a batch of Zeek flow events.
 

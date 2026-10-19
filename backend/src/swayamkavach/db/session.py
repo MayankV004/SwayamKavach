@@ -40,11 +40,19 @@ def init_db():
     if DATABASE_URL.startswith("sqlite"):
         from sqlalchemy import text
         with engine.connect() as conn:
-            try:
-                conn.execute(text("ALTER TABLE lifecycle_state ADD COLUMN last_fingerprint JSON"))
-                conn.commit()
-            except Exception:
-                pass
+            for col_sql in [
+                "ALTER TABLE lifecycle_state ADD COLUMN last_fingerprint JSON",
+                "ALTER TABLE lifecycle_state ADD COLUMN decision_threshold FLOAT",
+                "ALTER TABLE lifecycle_state ADD COLUMN proposed_threshold FLOAT",
+                "ALTER TABLE lifecycle_state ADD COLUMN threshold_state VARCHAR(64) DEFAULT 'DEFAULT'",
+                "ALTER TABLE window_damage_history ADD COLUMN window_end_at DATETIME",
+                "ALTER TABLE window_damage_history ADD COLUMN sequence_num INTEGER DEFAULT 0",
+            ]:
+                try:
+                    conn.execute(text(col_sql))
+                    conn.commit()
+                except Exception:
+                    pass
 
 
 

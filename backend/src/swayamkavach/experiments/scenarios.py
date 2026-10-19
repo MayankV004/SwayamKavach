@@ -10,6 +10,7 @@ Implements Phase 8:
 from __future__ import annotations
 
 import logging
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -22,6 +23,7 @@ from sqlalchemy.orm import Session
 from schemas.lifecycle import DamageFingerprint, EvaluationVerdict, RepairAction
 from swayamkavach.dari.calibrator import ThresholdCalibrator
 from swayamkavach.dari.selector import DARISolver
+from swayamkavach.db.models import GroundTruthLabelRecordDB, PredictionRecordDB
 from swayamkavach.deployment.canary import CanaryController
 from swayamkavach.evaluation.compare import ModelComparator
 
@@ -239,6 +241,24 @@ class ReplayScenarioRunner:
 
         canary_actions = []
         if db is not None:
+            # Seed candidate predictions & ground truth labels for canary statistical safety verification
+            for i in range(25):
+                eid = f"canary_eval_r2_{uuid.uuid4().hex[:12]}"
+                lbl = 1 if i < 10 else 0
+                db.add(PredictionRecordDB(
+                    event_id=eid,
+                    score=0.92 if lbl == 1 else 0.05,
+                    prediction=lbl,
+                    release_id="R2",
+                    model_version="v2",
+                    slot_id="B",
+                ))
+                db.add(GroundTruthLabelRecordDB(
+                    event_id=eid,
+                    label=lbl,
+                ))
+            db.commit()
+
             # Stage approved candidate into Slot B
             self.canary_controller.stage_candidate(db, candidate_release="R2", initial_weight=0.05)
             canary_actions.append("STAGED_5PCT")

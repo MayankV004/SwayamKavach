@@ -76,6 +76,38 @@ def test_canary_staging_and_initial_weight(tmp_path):
     db.close()
 
 
+def _seed_candidate_canary_data(db: SessionLocal, release_id: str, n_attack: int = 8, n_benign: int = 15):
+    """Helper to seed valid labeled observations for candidate health gate checks."""
+    import uuid
+    from swayamkavach.db.models import GroundTruthLabelRecordDB, PredictionRecordDB
+
+    for i in range(n_attack):
+        eid = f"seed_att_{release_id}_{uuid.uuid4().hex[:12]}"
+        db.add(PredictionRecordDB(
+            event_id=eid,
+            score=0.92,
+            prediction=1,
+            release_id=release_id,
+            model_version="v2",
+            slot_id="B",
+        ))
+        db.add(GroundTruthLabelRecordDB(event_id=eid, label=1))
+
+    for i in range(n_benign):
+        eid = f"seed_ben_{release_id}_{uuid.uuid4().hex[:12]}"
+        db.add(PredictionRecordDB(
+            event_id=eid,
+            score=0.08,
+            prediction=0,
+            release_id=release_id,
+            model_version="v2",
+            slot_id="B",
+        ))
+        db.add(GroundTruthLabelRecordDB(event_id=eid, label=0))
+
+    db.commit()
+
+
 def test_canary_progressive_advancement_and_promotion(tmp_path):
     """Verify gradual traffic advancement (5% -> 25% -> 50% -> 100%) and automatic promotion."""
     init_db()
@@ -87,6 +119,9 @@ def test_canary_progressive_advancement_and_promotion(tmp_path):
 
     # 1. Stage candidate
     controller.stage_candidate(db, candidate_release="R2-candidate", initial_weight=0.05)
+
+    # Seed statistical evidence for candidate
+    _seed_candidate_canary_data(db, release_id="R2-candidate", n_attack=8, n_benign=15)
 
     # 2. Advance to 25%
     s25 = controller.advance_stage(db)
@@ -239,6 +274,11 @@ def test_canary_deployment_api_flow():
     assert staged_data["candidate_release"] == "R2"
     assert staged_data["canary_weight"] == 0.05
 
+    # Seed statistical observations for candidate R2 so advance health gates pass
+    db = SessionLocal()
+    _seed_candidate_canary_data(db, release_id="R2", n_attack=8, n_benign=15)
+    db.close()
+
     # 3. Advance stage
     adv_resp = client.post("/api/v1/deployment/canary/advance", headers=auth_headers)
     assert adv_resp.status_code == 200
@@ -259,13 +299,20 @@ def test_canary_deployment_api_flow():
 
 
 def test_canary_health_gate_failure_triggers_warm_rollback(tmp_path, monkeypatch):
-    """Verify health gate failure triggers warm rollback when readyz fails."""
+    """Verify health gate failure triggers warm rollback when readyz fails during progression."""
     init_db()
     db = SessionLocal()
     conf_file = tmp_path / "nginx_test.conf"
     conf_file.write_text("dummy")
 
-    # Override mock to simulate 503 Service Unavailable
+    # 1. Stage candidate successfully with healthy mock
+    controller = CanaryController(nginx_conf_path=conf_file)
+    controller.stage_candidate(db, candidate_release="R2-faulty", initial_weight=0.05)
+
+    # 2. Seed data
+    _seed_candidate_canary_data(db, release_id="R2-faulty", n_attack=8, n_benign=15)
+
+    # 3. Now simulate health check failure during advance
     mock_resp_503 = MagicMock()
     mock_resp_503.status_code = 503
 
@@ -287,9 +334,6 @@ def test_canary_health_gate_failure_triggers_warm_rollback(tmp_path, monkeypatch
 
     monkeypatch.setattr("httpx.Client", FailingClient)
 
-    controller = CanaryController(nginx_conf_path=conf_file)
-    controller.stage_candidate(db, candidate_release="R2-faulty", initial_weight=0.05)
-
     with pytest.raises(ValueError, match="Canary progression blocked: Candidate slot B failed readiness check"):
         controller.advance_stage(db)
 
@@ -299,3 +343,158 @@ def test_canary_health_gate_failure_triggers_warm_rollback(tmp_path, monkeypatch
     assert state.canary_weight == 0.0
     assert "Health gate failure" in str(state.last_reason)
     db.close()
+
+
+# ---------------------------------------------------------
+# Issue 1 Tests: Canary evidence safety gate tests
+# ---------------------------------------------------------
+
+def test_zero_labeled_predictions_blocks_canary_promotion(tmp_path):
+    """Issue 1: Zero labeled observations must block candidate progression and trigger rollback."""
+    init_db()
+    db = SessionLocal()
+    conf_file = tmp_path / "nginx_test.conf"
+    conf_file.write_text("dummy")
+
+    controller = CanaryController(nginx_conf_path=conf_file)
+    controller.stage_candidate(db, candidate_release="R2-zero-evidence", initial_weight=0.05)
+
+    # With 0 labeled predictions in DB:
+    with pytest.raises(ValueError, match="Candidate evaluation sample insufficient: 0 labeled predictions observed"):
+        controller.advance_stage(db)
+
+    # Rolled back
+    state = controller.get_state(db)
+    assert state.candidate_release is None
+    assert state.canary_weight == 0.0
+    db.close()
+
+
+def test_all_benign_predictions_blocks_attack_recall_gate(tmp_path):
+    """Issue 1: An all-benign evaluation sample cannot verify attack recall and must block advancement."""
+    init_db()
+    db = SessionLocal()
+    conf_file = tmp_path / "nginx_test.conf"
+    conf_file.write_text("dummy")
+
+    controller = CanaryController(nginx_conf_path=conf_file)
+    controller.stage_candidate(db, candidate_release="R2-all-benign", initial_weight=0.05)
+
+    # Seed 20 benign, 0 attacks
+    _seed_candidate_canary_data(db, release_id="R2-all-benign", n_attack=0, n_benign=20)
+
+    with pytest.raises(ValueError, match="Insufficient attack observations to verify recall"):
+        controller.advance_stage(db)
+
+    db.close()
+
+
+def test_all_attack_predictions_blocks_fpr_gate(tmp_path):
+    """Issue 1: An all-attack evaluation sample cannot verify FPR and must block advancement."""
+    init_db()
+    db = SessionLocal()
+    conf_file = tmp_path / "nginx_test.conf"
+    conf_file.write_text("dummy")
+
+    controller = CanaryController(nginx_conf_path=conf_file)
+    controller.stage_candidate(db, candidate_release="R2-all-attack", initial_weight=0.05)
+
+    # Seed 15 attacks, 0 benign
+    _seed_candidate_canary_data(db, release_id="R2-all-attack", n_attack=15, n_benign=0)
+
+    with pytest.raises(ValueError, match="Insufficient benign observations to verify FPR"):
+        controller.advance_stage(db)
+
+    db.close()
+
+
+# ---------------------------------------------------------
+# Issue 2 Tests: Verified Nginx routing tests
+# ---------------------------------------------------------
+
+def test_missing_nginx_configuration_path_fails_safely(tmp_path):
+    """Issue 2: Staging must fail cleanly if Nginx config directory is invalid."""
+    init_db()
+    db = SessionLocal()
+    nonexistent_conf = tmp_path / "nonexistent_dir" / "sub" / "nginx.conf"
+
+    controller = CanaryController(nginx_conf_path=nonexistent_conf)
+    with pytest.raises(Exception):
+        controller.stage_candidate(db, candidate_release="R2-nginx-missing", initial_weight=0.05)
+
+    db.close()
+
+
+# ---------------------------------------------------------
+# Issue 3 Tests: Pre-flight candidate verification before routing
+# ---------------------------------------------------------
+
+def test_candidate_reload_http_500_blocks_staging(tmp_path, monkeypatch):
+    """Issue 3: HTTP 500 on candidate slot reload must block staging and prevent traffic exposure."""
+    init_db()
+    db = SessionLocal()
+    conf_file = tmp_path / "nginx_test.conf"
+    conf_file.write_text("server 127.0.0.1:8001 weight=100;\n")
+
+    class Reload500Client:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def get(self, url, **kwargs):
+            return MagicMock(status_code=200, json=lambda: {"is_ready": True, "inference_mode": "pipeline"})
+
+        def post(self, url, **kwargs):
+            return MagicMock(status_code=500)
+
+    monkeypatch.setattr("httpx.Client", Reload500Client)
+
+    controller = CanaryController(nginx_conf_path=conf_file)
+    with pytest.raises(RuntimeError, match="Candidate slot reload failed with HTTP 500"):
+        controller.stage_candidate(db, candidate_release="R2-bad-reload", initial_weight=0.05)
+
+    # Verify no traffic was routed to candidate: config remains 100% Slot A
+    content = conf_file.read_text()
+    assert "8002" not in content
+    db.close()
+
+
+def test_candidate_heuristic_inference_mode_blocks_staging(tmp_path, monkeypatch):
+    """Issue 3: Heuristic fallback inference mode on candidate slot must be rejected."""
+    init_db()
+    db = SessionLocal()
+    conf_file = tmp_path / "nginx_test.conf"
+    conf_file.write_text("server 127.0.0.1:8001 weight=100;\n")
+
+    class HeuristicClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def get(self, url, **kwargs):
+            return MagicMock(
+                status_code=200,
+                json=lambda: {"is_ready": True, "inference_mode": "heuristic"},
+            )
+
+        def post(self, url, **kwargs):
+            return MagicMock(status_code=200)
+
+    monkeypatch.setattr("httpx.Client", HeuristicClient)
+
+    controller = CanaryController(nginx_conf_path=conf_file)
+    with pytest.raises(RuntimeError, match="Candidate slot is running in forbidden heuristic fallback mode"):
+        controller.stage_candidate(db, candidate_release="R2-heuristic", initial_weight=0.05)
+
+    db.close()
+

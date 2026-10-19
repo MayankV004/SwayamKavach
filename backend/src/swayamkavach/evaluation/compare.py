@@ -15,6 +15,7 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -33,6 +34,14 @@ from sklearn.metrics import (
 from schemas.lifecycle import EvaluationVerdict
 
 logger = logging.getLogger("swayamkavach.evaluation.compare")
+
+
+def compute_sha256(file_path: Path) -> str:
+    h = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        while chunk := f.read(8192):
+            h.update(chunk)
+    return h.hexdigest()
 
 CRITICAL_ATTACK_CLASSES = ["backdoor", "ddos", "dos", "injection", "xss"]
 
