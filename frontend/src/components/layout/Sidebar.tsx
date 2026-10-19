@@ -40,7 +40,7 @@ export function Sidebar() {
   return (
     <aside
       aria-label="Sidebar Rail"
-      className="w-12 sm:w-14 shrink-0 flex flex-col items-center gap-2.5 sm:gap-3 sticky top-4 select-none"
+      className="w-12 sm:w-14 shrink-0 flex flex-col items-center gap-2.5 sm:gap-3 select-none overflow-hidden"
     >
 
       {/* Center: Vertical Icon Navigation Rail (Compact floating capsule with perfectly centered focus) */}
