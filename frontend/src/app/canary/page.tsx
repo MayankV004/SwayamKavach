@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Server } from "lucide-react";
 
 export default function CanaryPage() {
-  const { lifecycle, actingCanary, canaryActionStatus, advanceCanary, rollbackCanary } =
+  const { lifecycle, actingCanary, canaryActionStatus, advanceCanary, rollbackCanary, resetLifecycle } =
     useDashboard();
 
   const isSlotAPrimary = lifecycle.active_slot === "A";
@@ -22,6 +22,7 @@ export default function CanaryPage() {
         canaryActionStatus={canaryActionStatus}
         onAdvanceCanary={advanceCanary}
         onRollbackCanary={rollbackCanary}
+        onResetLifecycle={resetLifecycle}
       />
 
       {/* Active Serving Topology & Local Endpoints */}

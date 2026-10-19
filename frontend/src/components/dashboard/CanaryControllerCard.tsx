@@ -14,6 +14,7 @@ interface CanaryControllerCardProps {
   canaryActionStatus: string | null;
   onAdvanceCanary: () => void;
   onRollbackCanary: () => void;
+  onResetLifecycle?: () => void;
 }
 
 export function CanaryControllerCard({
@@ -22,6 +23,7 @@ export function CanaryControllerCard({
   canaryActionStatus,
   onAdvanceCanary,
   onRollbackCanary,
+  onResetLifecycle,
 }: CanaryControllerCardProps) {
   const canaryPct = Math.round(lifecycle.canary_weight * 100);
   const champPct = 100 - canaryPct;
@@ -178,6 +180,20 @@ export function CanaryControllerCard({
             <RotateCcw className="h-4 w-4" />
             <span>Warm Rollback (100% Champion)</span>
           </Button>
+
+          {onResetLifecycle && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onResetLifecycle}
+              disabled={actingCanary}
+              className="border-[#EAE7ED] dark:border-[#282534] bg-white dark:bg-[#16151D] text-[#85818D] dark:text-[#A5A0AF] hover:text-[#25232B] dark:hover:text-[#F2F1F6] text-xs font-bold h-9.5 rounded-full gap-2 cursor-pointer shadow-2xs"
+              title="Reset deployment back to baseline: Champion R1 on Slot A"
+            >
+              <RotateCcw className="h-4 w-4" />
+              <span>Reset to Baseline (Slot A / R1)</span>
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
