@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { LifecycleState } from "@/types/contracts";
-import { RotateCcw, ArrowRight } from "lucide-react";
+import { RotateCcw, ArrowRight, GitFork, Server } from "lucide-react";
 
 interface CanaryControllerCardProps {
   lifecycle: LifecycleState;
@@ -31,25 +31,36 @@ export function CanaryControllerCard({
   const slotAWeight = slotAIsChamp ? champPct : canaryPct;
   const slotBWeight = slotAIsChamp ? canaryPct : champPct;
 
+  const stageNumber =
+    canaryPct === 0
+      ? 0
+      : canaryPct <= 5
+      ? 1
+      : canaryPct <= 25
+      ? 2
+      : canaryPct <= 50
+      ? 3
+      : 4;
+
   return (
-    <Card className="border-zinc-200/90 bg-white shadow-xs">
-      <CardHeader className="pb-4 border-b border-zinc-100">
+    <Card className="rounded-2xl border border-[#EAE7ED] dark:border-[#282534] bg-white dark:bg-[#16151D] shadow-subtle overflow-hidden">
+      <CardHeader className="pb-4 border-b border-[#F0EFF4] dark:border-[#282534]">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2.5">
-              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-zinc-100 text-[11px] font-bold text-zinc-700">
-                02
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-coral-gradient text-[11px] font-bold text-white shadow-coral-soft">
+                <GitFork className="h-3.5 w-3.5 text-white" />
               </span>
-              <CardTitle className="text-base sm:text-lg font-bold tracking-tight text-zinc-950">
+              <CardTitle className="text-base sm:text-lg font-bold tracking-tight text-[#25232B] dark:text-[#F2F1F6]">
                 Two-Slot Canary Deployment Controller
               </CardTitle>
             </div>
-            <CardDescription className="mt-1 text-xs text-zinc-500 pl-7">
+            <CardDescription className="mt-1 text-xs text-[#85818D] dark:text-[#A5A0AF] pl-8">
               Multi-stage traffic routing controller: 5% → 25% → 50% → 100% with immediate warm rollback
             </CardDescription>
           </div>
-          <Badge variant="outline" className="text-xs px-3 py-1 font-semibold border-zinc-200 bg-zinc-50 self-start sm:self-auto">
-            Canary Weight: <span className="font-bold text-zinc-950 ml-1 tabular-nums">{canaryPct}%</span>
+          <Badge variant="outline" className="text-xs px-3 py-1 font-semibold border-[#EAE7ED] dark:border-[#282534] bg-[#F5F4F7] dark:bg-[#1E1B24] text-[#25232B] dark:text-[#F2F1F6] self-start sm:self-auto shadow-2xs">
+            Canary Weight: <span className="font-extrabold text-[#25232B] dark:text-[#F2F1F6] ml-1 tabular-nums">{canaryPct}%</span>
           </Badge>
         </div>
       </CardHeader>
@@ -58,53 +69,86 @@ export function CanaryControllerCard({
         {/* Slot Traffic Distribution visualizer with Big Numbers */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Slot A */}
-          <div className="p-4 rounded-xl border border-zinc-200/80 bg-zinc-50/60 shadow-xs">
+          <div className="p-4 rounded-2xl border border-[#EAE7ED] dark:border-[#282534] bg-[#FAF9FC] dark:bg-[#1B1924] shadow-2xs hover:bg-white dark:hover:bg-[#201D2A] hover:border-[#D5D2DA] dark:hover:border-[#3E3A4D] hover:shadow-subtle transition-all">
             <div className="flex items-center justify-between mb-2">
-              <span className="font-semibold text-xs text-zinc-900">Serving Slot A (:8001)</span>
-              <Badge variant={slotAIsChamp ? "default" : "purple"} className="text-xs px-2 py-0.5">
-                {slotAIsChamp ? "Champion" : "Canary"}
+              <div className="flex items-center gap-2">
+                <Server className="h-4 w-4 text-[#85818D] dark:text-[#A5A0AF]" />
+                <span className="font-bold text-xs text-[#25232B] dark:text-[#F2F1F6]">Serving Slot A (:8001)</span>
+              </div>
+              <Badge variant={slotAIsChamp ? "default" : "purple"} className="text-xs px-2.5 py-0.5 shadow-2xs font-semibold">
+                {slotAIsChamp ? "Champion (Active)" : "Canary (Staged)"}
               </Badge>
             </div>
             <div className="flex items-baseline justify-between mt-1">
-              <div className="text-3xl font-extrabold text-zinc-950 tabular-nums">
+              <div className="text-3xl sm:text-4xl font-extrabold text-[#25232B] dark:text-[#F2F1F6] tabular-nums">
                 {slotAWeight}%
               </div>
-              <div className="text-xs font-bold text-zinc-700">
+              <div className="text-xs font-bold text-[#25232B] dark:text-[#F2F1F6]">
                 {slotAIsChamp ? lifecycle.champion_release : lifecycle.candidate_release || "Idle"}
               </div>
             </div>
             <div className="mt-3">
-              <Progress value={slotAWeight} className="h-2 bg-zinc-200/80 rounded-full" indicatorClassName="bg-zinc-950" />
+              <Progress value={slotAWeight} className="h-2 bg-[#EAE7ED] dark:bg-[#282534] rounded-full overflow-hidden" indicatorClassName={slotAIsChamp ? "bg-emerald-600 dark:bg-emerald-500" : "bg-[#E76552]"} />
             </div>
           </div>
 
           {/* Slot B */}
-          <div className="p-4 rounded-xl border border-zinc-200/80 bg-zinc-50/60 shadow-xs">
+          <div className="p-4 rounded-2xl border border-[#EAE7ED] dark:border-[#282534] bg-[#FAF9FC] dark:bg-[#1B1924] shadow-2xs hover:bg-white dark:hover:bg-[#201D2A] hover:border-[#D5D2DA] dark:hover:border-[#3E3A4D] hover:shadow-subtle transition-all">
             <div className="flex items-center justify-between mb-2">
-              <span className="font-semibold text-xs text-zinc-900">Serving Slot B (:8002)</span>
-              <Badge variant={!slotAIsChamp ? "default" : "secondary"} className="text-xs px-2 py-0.5">
-                {!slotAIsChamp ? "Champion" : "Canary"}
+              <div className="flex items-center gap-2">
+                <Server className="h-4 w-4 text-[#85818D] dark:text-[#A5A0AF]" />
+                <span className="font-bold text-xs text-[#25232B] dark:text-[#F2F1F6]">Serving Slot B (:8002)</span>
+              </div>
+              <Badge variant={!slotAIsChamp ? "default" : "secondary"} className="text-xs px-2.5 py-0.5 shadow-2xs font-semibold">
+                {!slotAIsChamp ? "Champion (Active)" : "Canary (Standby)"}
               </Badge>
             </div>
             <div className="flex items-baseline justify-between mt-1">
-              <div className="text-3xl font-extrabold text-zinc-950 tabular-nums">
+              <div className="text-3xl sm:text-4xl font-extrabold text-[#25232B] dark:text-[#F2F1F6] tabular-nums">
                 {slotBWeight}%
               </div>
-              <div className="text-xs font-bold text-zinc-700">
-                {!slotAIsChamp ? lifecycle.champion_release : lifecycle.candidate_release || "Standby"}
+              <div className="text-xs font-bold text-[#25232B] dark:text-[#F2F1F6]">
+                {!slotAIsChamp ? lifecycle.champion_release : lifecycle.candidate_release || "Standby (Idle)"}
               </div>
             </div>
             <div className="mt-3">
-              <Progress value={slotBWeight} className="h-2 bg-zinc-200/80 rounded-full" indicatorClassName="bg-zinc-950" />
+              <Progress value={slotBWeight} className="h-2 bg-[#EAE7ED] dark:bg-[#282534] rounded-full overflow-hidden" indicatorClassName={!slotAIsChamp ? "bg-emerald-600 dark:bg-emerald-500" : "bg-[#E76552]"} />
+            </div>
+          </div>
+        </div>
+
+        {/* 4-Stage Canary Stepper Pill Rail */}
+        <div className="p-4 rounded-2xl bg-[#F5F4F7] dark:bg-[#1B1924] border border-[#EAE7ED] dark:border-[#282534] space-y-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-[#25232B] dark:text-[#F2F1F6]">Canary Staging Progress</span>
+            <span className="text-[#85818D] dark:text-[#A5A0AF] font-medium">Stage {stageNumber} of 4</span>
+          </div>
+
+          <div className="grid grid-cols-4 gap-2">
+            <div className={`p-2.5 rounded-xl border text-center transition-all ${canaryPct >= 5 ? "bg-white dark:bg-[#16151D] border-[#E76552] dark:border-[#E76552] shadow-2xs ring-1 ring-[#E76552]/20" : "bg-white/50 dark:bg-[#16151D]/50 border-[#EAE7ED] dark:border-[#282534] opacity-60"}`}>
+              <div className="text-[10px] uppercase font-bold text-[#85818D] dark:text-[#A5A0AF]">Stage 1</div>
+              <div className="text-xs font-extrabold text-[#25232B] dark:text-[#F2F1F6]">5% Pilot</div>
+            </div>
+            <div className={`p-2.5 rounded-xl border text-center transition-all ${canaryPct >= 25 ? "bg-white dark:bg-[#16151D] border-[#E76552] dark:border-[#E76552] shadow-2xs ring-1 ring-[#E76552]/20" : "bg-white/50 dark:bg-[#16151D]/50 border-[#EAE7ED] dark:border-[#282534] opacity-60"}`}>
+              <div className="text-[10px] uppercase font-bold text-[#85818D] dark:text-[#A5A0AF]">Stage 2</div>
+              <div className="text-xs font-extrabold text-[#25232B] dark:text-[#F2F1F6]">25% Staged</div>
+            </div>
+            <div className={`p-2.5 rounded-xl border text-center transition-all ${canaryPct >= 50 ? "bg-white dark:bg-[#16151D] border-[#E76552] dark:border-[#E76552] shadow-2xs ring-1 ring-[#E76552]/20" : "bg-white/50 dark:bg-[#16151D]/50 border-[#EAE7ED] dark:border-[#282534] opacity-60"}`}>
+              <div className="text-[10px] uppercase font-bold text-[#85818D] dark:text-[#A5A0AF]">Stage 3</div>
+              <div className="text-xs font-extrabold text-[#25232B] dark:text-[#F2F1F6]">50% Split</div>
+            </div>
+            <div className={`p-2.5 rounded-xl border text-center transition-all ${canaryPct >= 100 ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-600 dark:border-emerald-500 text-emerald-950 dark:text-emerald-300 shadow-2xs" : "bg-white/50 dark:bg-[#16151D]/50 border-[#EAE7ED] dark:border-[#282534] opacity-60"}`}>
+              <div className="text-[10px] uppercase font-bold text-emerald-800 dark:text-emerald-400">Stage 4</div>
+              <div className="text-xs font-extrabold text-[#25232B] dark:text-[#F2F1F6]">100% Promo</div>
             </div>
           </div>
         </div>
 
         {/* Feedback message banner */}
         {canaryActionStatus && (
-          <div className="p-3 rounded-lg text-xs bg-zinc-900 text-zinc-100 border border-zinc-800 flex items-center justify-between shadow-xs animate-fade-in">
+          <div className="p-3.5 rounded-2xl text-xs bg-[#FAF9FC] dark:bg-[#1B1924] text-[#25232B] dark:text-[#F2F1F6] border border-[#EAE7ED] dark:border-[#282534] flex items-center justify-between shadow-2xs animate-fade-in">
             <span className="font-medium">Controller Status: {canaryActionStatus}</span>
-            <span className="text-[10px] text-zinc-400 font-semibold uppercase">Updated</span>
+            <span className="text-[10px] text-[#E76552] font-semibold uppercase">Updated</span>
           </div>
         )}
 
@@ -114,8 +158,8 @@ export function CanaryControllerCard({
             variant="default"
             size="sm"
             onClick={onAdvanceCanary}
-            disabled={actingCanary || !lifecycle.candidate_release}
-            className="flex-1 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-semibold h-9 gap-2 shadow-xs"
+            disabled={actingCanary || !lifecycle.candidate_release || canaryPct >= 100}
+            className="flex-1 bg-[#E76552] hover:bg-[#D8523E] text-white text-xs font-bold h-9.5 rounded-full gap-2 shadow-coral-soft cursor-pointer active:scale-98 transition-all"
           >
             <ArrowRight className="h-4 w-4" />
             <span>
@@ -127,8 +171,8 @@ export function CanaryControllerCard({
             variant="outline"
             size="sm"
             onClick={onRollbackCanary}
-            disabled={actingCanary}
-            className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 text-xs font-semibold h-9 gap-2"
+            disabled={actingCanary || canaryPct === 0}
+            className="border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 bg-red-50/70 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 text-xs font-bold h-9.5 rounded-full gap-2 cursor-pointer shadow-2xs"
             title="Immediately restore 100% traffic to Champion"
           >
             <RotateCcw className="h-4 w-4" />

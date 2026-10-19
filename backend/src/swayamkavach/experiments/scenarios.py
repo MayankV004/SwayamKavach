@@ -370,8 +370,11 @@ class ReplayScenarioRunner:
             R=1,
         )
 
-        # Stage candidate in Slot B
-        self.canary_controller.stage_candidate(db, candidate_release="R2-unstable", initial_weight=0.05)
+        # Stage candidate in Slot B (fallback to R2 if synthetic R2-unstable is not on disk)
+        backend_dir = Path(__file__).resolve().parent.parent.parent.parent
+        unstable_dir = backend_dir / "releases" / "R2-unstable"
+        cand_rel = "R2-unstable" if (unstable_dir / "pipeline.joblib").exists() else "R2"
+        self.canary_controller.stage_candidate(db, candidate_release=cand_rel, initial_weight=0.05)
 
         # Watchdog breach simulation
         rolled_back_state = self.canary_controller.warm_rollback(

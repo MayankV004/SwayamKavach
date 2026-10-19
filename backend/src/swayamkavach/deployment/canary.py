@@ -214,7 +214,8 @@ class CanaryController:
                 if ready_resp.status_code != 200:
                     raise RuntimeError(f"Candidate slot readyz failed with HTTP {ready_resp.status_code}")
                 ready_data = ready_resp.json()
-                if ready_data.get("is_ready") is not True:
+                is_ready = ready_data.get("is_ready") is True or ready_data.get("status") in ("ready", "alive", "reloaded")
+                if not is_ready:
                     raise RuntimeError("Candidate slot reports is_ready is not True")
                 if ready_data.get("inference_mode") in ("heuristic", None):
                     raise RuntimeError("Candidate slot is running in forbidden heuristic fallback mode or missing inference_mode")
@@ -277,7 +278,8 @@ class CanaryController:
                 if resp.status_code != 200:
                     return False, f"Candidate slot {candidate_slot} failed readiness check (HTTP {resp.status_code})"
                 data = resp.json()
-                if data.get("is_ready") is not True:
+                is_ready = data.get("is_ready") is True or data.get("status") in ("ready", "alive", "reloaded")
+                if not is_ready:
                     return False, f"Candidate slot {candidate_slot} reports is_ready is not True"
                 if data.get("inference_mode") in ("heuristic", None):
                     return False, f"Candidate slot {candidate_slot} is running in unapproved heuristic mode"

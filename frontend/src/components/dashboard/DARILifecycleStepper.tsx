@@ -42,7 +42,6 @@ export function DARILifecycleStepper({
   const isA0 = chosenAction === "A0";
   const isA1 = chosenAction === "A1";
   const isA2 = chosenAction === "A2";
-  const isA3 = chosenAction === "A3";
   const isGateRejection = scenarioResult?.scenario === "faulty_candidate_rejection";
   const isWatchdogRollback = scenarioResult?.scenario === "canary_watchdog_rollback";
 
@@ -58,7 +57,6 @@ export function DARILifecycleStepper({
       icon: Radio,
       status: "completed" as const,
       badgeText: `Window S=${fingerprint.S}`,
-      badgeVariant: "secondary" as const,
       summary: "Sliding window of network flows with aligned ground truth",
       details: {
         "Buffer Window Size": `${fingerprint.S} packets / flows`,
@@ -75,7 +73,6 @@ export function DARILifecycleStepper({
       icon: Activity,
       status: "completed" as const,
       badgeText: `D_X=${fingerprint.D_X.toFixed(2)} · D_B=${fingerprint.D_B.toFixed(2)}`,
-      badgeVariant: fingerprint.D_Y != null && fingerprint.D_Y > 0.05 ? ("destructive" as const) : ("info" as const),
       summary: "Explicit 7-dimensional damage fingerprint calculation",
       details: {
         "D_X (Distribution Drift)": `${(fingerprint.D_X * 100).toFixed(1)}% (2-sample KS-test)`,
@@ -94,14 +91,6 @@ export function DARILifecycleStepper({
       icon: Cpu,
       status: "completed" as const,
       badgeText: `Selected: ${chosenAction}`,
-      badgeVariant:
-        chosenAction === "A0"
-          ? ("secondary" as const)
-          : chosenAction === "A1"
-          ? ("info" as const)
-          : chosenAction === "A2"
-          ? ("warning" as const)
-          : ("destructive" as const),
       summary: "Cost-risk-damage optimization with deterministic hard gates",
       details: {
         "Chosen Action": `${chosenAction} (Minimal Sufficient Intervention)`,
@@ -124,7 +113,6 @@ export function DARILifecycleStepper({
         : isA2
         ? "Local Subspace Fitted"
         : "Full Estimator Refit",
-      badgeVariant: isA0 ? ("outline" as const) : ("success" as const),
       summary: isA0
         ? "A0: Security behavior remains healthy; monitoring maintained"
         : isA1
@@ -151,11 +139,10 @@ export function DARILifecycleStepper({
         ? ("blocked" as const)
         : ("completed" as const),
       badgeText: isA0 || isA1
-        ? "Bypassed (No Model Artifact)"
+        ? "Bypassed (No Artifact)"
         : isGateRejection
         ? "REJECTED (McNemar Fail)"
         : "PASSED (p > 0.05)",
-      badgeVariant: isGateRejection ? ("destructive" as const) : isA0 || isA1 ? ("outline" as const) : ("success" as const),
       summary: isGateRejection
         ? "Candidate failed critical-class recall test; rollout aborted"
         : isA0 || isA1
@@ -179,8 +166,7 @@ export function DARILifecycleStepper({
         : ("completed" as const),
       badgeText: isA0 || isA1 || isGateRejection
         ? "Bypassed"
-        : "Cryptographically Verified",
-      badgeVariant: isA0 || isA1 || isGateRejection ? ("outline" as const) : ("success" as const),
+        : "HMAC Verified",
       summary: "Cryptographic SHA-256 digest validation & inactive slot pre-flight",
       details: {
         "Artifact Digest": "sha256:7f9a1b3c... (Verified against manifest)",
@@ -204,8 +190,7 @@ export function DARILifecycleStepper({
         ? "Warm Rollback (0%)"
         : canaryPct > 0
         ? `Canary ${canaryPct}%`
-        : "Standby / Champion 100%",
-      badgeVariant: isWatchdogRollback ? ("destructive" as const) : canaryPct > 0 ? ("warning" as const) : ("secondary" as const),
+        : "Champion 100%",
       summary: isWatchdogRollback
         ? "Watchdog detected latency/error SLA breach; 100% traffic instantly restored to Slot A"
         : `Traffic staged 5% → 25% → 50% → 100% across Slot A (:8001) and Slot B (:8002)`,
@@ -220,45 +205,37 @@ export function DARILifecycleStepper({
   ];
 
   return (
-    <div className="rounded-xl border border-zinc-200/90 bg-white p-5 sm:p-6 shadow-xs space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 border-b border-zinc-100 gap-2">
+    <div className="rounded-2xl border border-[#EAE7ED] dark:border-[#282534] bg-white dark:bg-[#16151D] p-5 sm:p-6 shadow-subtle space-y-6">
+      {/* Section Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 border-b border-[#F0EFF4] dark:border-[#282534] gap-2">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-5 w-5 items-center justify-center rounded-md bg-zinc-950 text-[11px] font-bold text-white shadow-xs">
-              <Zap className="h-3 w-3 fill-current" />
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-coral-gradient text-[11px] font-bold text-white shadow-coral-soft">
+              <Zap className="h-3 w-3 fill-current text-white" />
             </span>
-            <h2 className="text-base sm:text-lg font-bold tracking-tight text-zinc-950">
-              Autonomous DARI Self-Healing Pipeline
+            <h2 className="text-base sm:text-lg font-bold tracking-tight text-[#25232B] dark:text-[#F2F1F6]">
+              Autonomous DARI Closed-Loop Lifecycle
             </h2>
             {isScenarioActive && (
-              <Badge variant="outline" className="border-emerald-500 text-emerald-700 bg-emerald-50 text-[11px] font-semibold">
-                Live Scenario Active
+              <Badge variant="outline" className="border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 text-[11px] font-semibold">
+                Scenario Active
               </Badge>
             )}
           </div>
-          <p className="text-xs text-zinc-500 pl-7.5">
-            End-to-end 7-stage closed loop: Monitor → Diagnose → Select Repair → Build Candidate → Validate → Stage → Canary
+          <p className="text-xs text-[#85818D] dark:text-[#A5A0AF] pl-8">
+            Continuous 7-stage workflow: Monitor → Diagnose → Select Repair → Build Candidate → Validate → Stage → Canary
           </p>
         </div>
 
-        <div className="flex items-center gap-2 pl-7.5 sm:pl-0">
-          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+        <div className="flex items-center gap-2 pl-8 sm:pl-0">
+          <span className="text-xs font-semibold text-[#85818D] dark:text-[#A5A0AF] uppercase tracking-wider">
             Active Action:
           </span>
           <Badge
             variant="default"
-            className={`text-xs font-bold px-2.5 py-0.5 ${
-              chosenAction === "A0"
-                ? "bg-zinc-800 text-white"
-                : chosenAction === "A1"
-                ? "bg-blue-600 text-white"
-                : chosenAction === "A2"
-                ? "bg-amber-600 text-white"
-                : "bg-red-600 text-white"
-            }`}
+            className="text-xs font-bold px-3 py-1 bg-coral-gradient text-white shadow-coral-soft"
           >
-            Level {chosenAction}
+            Action {chosenAction}
           </Badge>
         </div>
       </div>
@@ -273,24 +250,24 @@ export function DARILifecycleStepper({
             <div
               key={step.num}
               onClick={() => toggleStep(step.num)}
-              className={`p-3 rounded-xl border text-left cursor-pointer transition-all duration-150 flex flex-col justify-between space-y-2 select-none ${
+              className={`p-3.5 rounded-2xl border text-left cursor-pointer transition-all duration-200 flex flex-col justify-between space-y-2 select-none shadow-2xs hover:scale-[1.02] ${
                 isExpanded
-                  ? "border-zinc-950 bg-zinc-900 text-white shadow-sm ring-1 ring-zinc-950"
+                  ? "border-[#E76552] bg-[#FDF0EE] dark:bg-[#E76552]/15 text-[#25232B] dark:text-[#F2F1F6] shadow-subtle ring-2 ring-[#E76552]/30"
                   : step.status === "blocked"
-                  ? "border-red-200 bg-red-50/70 hover:bg-red-50 text-zinc-900"
+                  ? "border-red-200 dark:border-red-900 bg-red-50/70 dark:bg-red-950/40 hover:bg-red-50 dark:hover:bg-red-950/60 text-[#25232B] dark:text-[#F2F1F6]"
                   : step.status === "active"
-                  ? "border-amber-300 bg-amber-50/70 hover:bg-amber-50 text-zinc-900"
+                  ? "border-amber-300 dark:border-amber-700 bg-amber-50/70 dark:bg-amber-950/40 hover:bg-amber-50 dark:hover:bg-amber-950/60 text-[#25232B] dark:text-[#F2F1F6]"
                   : step.status === "bypassed"
-                  ? "border-zinc-200/70 bg-zinc-50/40 hover:bg-zinc-100/70 text-zinc-600 opacity-80"
-                  : "border-zinc-200/80 bg-zinc-50/60 hover:bg-white hover:border-zinc-300 hover:shadow-xs text-zinc-900"
+                  ? "border-[#EAE7ED] dark:border-[#282534] bg-[#FAF9FC] dark:bg-[#1B1924] hover:bg-[#F5F4F7] dark:hover:bg-[#201D2A] text-[#85818D] dark:text-[#A5A0AF] opacity-80"
+                  : "border-[#EAE7ED] dark:border-[#282534] bg-[#FAF9FC] dark:bg-[#1B1924] hover:bg-white dark:hover:bg-[#201D2A] hover:border-[#D5D2DA] dark:hover:border-[#3E3A4D] hover:shadow-subtle text-[#25232B] dark:text-[#F2F1F6]"
               }`}
             >
               <div className="flex items-center justify-between">
                 <span
-                  className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                     isExpanded
-                      ? "bg-zinc-800 text-zinc-200"
-                      : "bg-zinc-200/80 text-zinc-700"
+                      ? "bg-coral-gradient text-white shadow-2xs"
+                      : "bg-[#EAE7ED] dark:bg-[#282534] text-[#25232B] dark:text-[#F2F1F6]"
                   }`}
                 >
                   Step {step.num}
@@ -300,12 +277,10 @@ export function DARILifecycleStepper({
                 ) : step.status === "active" ? (
                   <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
                 ) : step.status === "bypassed" ? (
-                  <span className="text-[10px] text-zinc-400 font-semibold uppercase">Skip</span>
+                  <span className="text-[10px] text-[#85818D] dark:text-[#A5A0AF] font-semibold uppercase">Skip</span>
                 ) : (
                   <CheckCircle2
-                    className={`h-4 w-4 shrink-0 ${
-                      isExpanded ? "text-emerald-400" : "text-emerald-600"
-                    }`}
+                    className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400"
                   />
                 )}
               </div>
@@ -314,12 +289,12 @@ export function DARILifecycleStepper({
                 <div className="flex items-center gap-1.5">
                   <Icon
                     className={`h-3.5 w-3.5 shrink-0 ${
-                      isExpanded ? "text-zinc-300" : "text-zinc-600"
+                      isExpanded ? "text-[#E76552]" : "text-[#85818D] dark:text-[#A5A0AF]"
                     }`}
                   />
                   <span
                     className={`text-xs font-bold truncate ${
-                      isExpanded ? "text-white" : "text-zinc-950"
+                      isExpanded ? "text-[#E76552]" : "text-[#25232B] dark:text-[#F2F1F6]"
                     }`}
                   >
                     {step.shortTitle}
@@ -327,21 +302,21 @@ export function DARILifecycleStepper({
                 </div>
                 <div
                   className={`text-[11px] leading-tight line-clamp-2 ${
-                    isExpanded ? "text-zinc-300" : "text-zinc-500"
+                    isExpanded ? "text-[#E76552]/80 font-medium" : "text-[#85818D] dark:text-[#A5A0AF]"
                   }`}
                 >
                   {step.badgeText}
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-1 border-t border-zinc-200/40 text-[10px]">
-                <span className={isExpanded ? "text-zinc-400" : "text-zinc-400"}>
-                  {isExpanded ? "Hide" : "Details"}
+              <div className="flex items-center justify-between pt-1 border-t border-black/5 dark:border-white/5 text-[10px]">
+                <span className={isExpanded ? "text-[#E76552] font-semibold" : "text-[#85818D] dark:text-[#A5A0AF]"}>
+                  {isExpanded ? "Collapse" : "Inspect"}
                 </span>
                 {isExpanded ? (
-                  <ChevronUp className="h-3 w-3 text-zinc-400" />
+                  <ChevronUp className="h-3 w-3 text-[#E76552]" />
                 ) : (
-                  <ChevronDown className="h-3 w-3 text-zinc-400" />
+                  <ChevronDown className="h-3 w-3 text-[#85818D] dark:text-[#A5A0AF]" />
                 )}
               </div>
             </div>
@@ -351,23 +326,23 @@ export function DARILifecycleStepper({
 
       {/* Expanded Stage Deep-Dive Inspector */}
       {expandedStep !== null && (
-        <div className="rounded-xl border border-zinc-200/90 bg-zinc-950 text-zinc-100 p-5 space-y-4 animate-fade-in text-xs shadow-xs">
+        <div className="rounded-2xl border border-[#EAE7ED] dark:border-[#282534] bg-[#FAF9FC] dark:bg-[#1B1924] p-5 space-y-4 animate-fade-in text-xs shadow-subtle text-[#25232B] dark:text-[#F2F1F6]">
           {(() => {
             const activeStepData = STEPS.find((s) => s.num === expandedStep);
             if (!activeStepData) return null;
 
             return (
               <>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-zinc-800 gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#F0EFF4] dark:border-[#282534] gap-2">
                   <div className="flex items-center gap-2.5">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-500 text-zinc-950 text-xs font-extrabold">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-coral-gradient text-white text-xs font-extrabold shadow-coral-soft">
                       {activeStepData.num}
                     </span>
                     <div>
-                      <h3 className="text-sm font-bold text-white">
+                      <h3 className="text-sm font-bold text-[#25232B] dark:text-[#F2F1F6]">
                         {activeStepData.title}
                       </h3>
-                      <p className="text-xs text-zinc-400">
+                      <p className="text-xs text-[#85818D] dark:text-[#A5A0AF]">
                         {activeStepData.summary}
                       </p>
                     </div>
@@ -375,7 +350,7 @@ export function DARILifecycleStepper({
 
                   <button
                     onClick={() => setExpandedStep(null)}
-                    className="self-start sm:self-auto text-zinc-400 hover:text-white text-xs px-2.5 py-1 rounded border border-zinc-700 bg-zinc-900 cursor-pointer"
+                    className="self-start sm:self-auto text-xs px-3 py-1 rounded-full border border-[#EAE7ED] dark:border-[#282534] bg-white dark:bg-[#16151D] text-[#25232B] dark:text-[#F2F1F6] hover:bg-[#F5F4F7] dark:hover:bg-[#201D2A] transition-colors cursor-pointer shadow-2xs font-medium"
                   >
                     Close Inspector
                   </button>
@@ -386,12 +361,12 @@ export function DARILifecycleStepper({
                   {Object.entries(activeStepData.details).map(([key, value]) => (
                     <div
                       key={key}
-                      className="p-3 rounded-lg border border-zinc-800 bg-zinc-900/70 space-y-1"
+                      className="p-3 rounded-xl border border-[#EAE7ED] dark:border-[#282534] bg-white dark:bg-[#16151D] space-y-1 shadow-2xs"
                     >
-                      <span className="text-[11px] text-zinc-400 block font-medium">
+                      <span className="text-[11px] text-[#85818D] dark:text-[#A5A0AF] block font-medium">
                         {key}
                       </span>
-                      <span className="text-xs font-bold text-zinc-100 block">
+                      <span className="text-xs font-bold text-[#25232B] dark:text-[#F2F1F6] block">
                         {value}
                       </span>
                     </div>
@@ -399,13 +374,13 @@ export function DARILifecycleStepper({
                 </div>
 
                 {/* Mathematical Invariant & Design Guarantee */}
-                <div className="p-3.5 rounded-lg bg-emerald-950/30 border border-emerald-900/60 flex items-start gap-2.5">
-                  <Info className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                <div className="p-3.5 rounded-xl bg-white dark:bg-[#16151D] border border-[#EAE7ED] dark:border-[#282534] flex items-start gap-2.5 shadow-2xs">
+                  <Info className="h-4 w-4 text-[#E76552] shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold text-emerald-400 text-xs block">
+                    <span className="font-bold text-[#E76552] text-xs block">
                       DARI Mathematical Guarantee &amp; Invariant:
                     </span>
-                    <p className="text-zinc-300 text-xs mt-0.5 leading-relaxed">
+                    <p className="text-[#85818D] dark:text-[#A5A0AF] text-xs mt-0.5 leading-relaxed">
                       {activeStepData.why}
                     </p>
                   </div>

@@ -38,13 +38,13 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
         onClick={() => onOpenChange(false)}
       />
       {/* Dialog box with smooth pop-in */}
-      <div className="relative z-50 w-full max-w-2xl rounded-xl border border-zinc-200 bg-white p-6 shadow-xl animate-slide-down">
+      <div className="relative z-50 w-full max-w-2xl rounded-2xl border border-[#EAE7ED] dark:border-[#282534] bg-white dark:bg-[#16151D] text-[#25232B] dark:text-[#F2F1F6] p-6 shadow-xl animate-slide-down">
         {children}
         <button
           onClick={() => onOpenChange(false)}
-          className="absolute right-4 top-4 rounded-sm px-1.5 py-0.5 text-zinc-400 font-mono text-xs transition-colors hover:text-zinc-950 focus:outline-none"
+          className="absolute right-4 top-4 rounded-full p-1.5 text-[#85818D] dark:text-[#A5A0AF] hover:text-[#25232B] dark:hover:text-[#F2F1F6] hover:bg-[#F5F4F7] dark:hover:bg-[#1E1B24] transition-colors focus:outline-none cursor-pointer"
         >
-          [✕]
+          ✕
         </button>
       </div>
     </div>
@@ -68,7 +68,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <h2
     ref={ref}
-    className={cn("text-base font-semibold leading-none tracking-tight text-zinc-950", className)}
+    className={cn("text-base font-semibold leading-none tracking-tight text-[#25232B] dark:text-[#F2F1F6]", className)}
     {...props}
   />
 ));
@@ -80,7 +80,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("text-xs text-zinc-500 leading-relaxed mt-1", className)}
+    className={cn("text-xs text-[#85818D] dark:text-[#A5A0AF] leading-relaxed mt-1", className)}
     {...props}
   />
 ));
@@ -91,7 +91,7 @@ const DialogFooter = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-6 pt-4 border-t border-zinc-100", className)}
+    className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-6 pt-4 border-t border-[#F0EFF4] dark:border-[#282534]", className)}
     {...props}
   />
 );

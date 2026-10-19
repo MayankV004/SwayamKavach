@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { useDashboard } from "@/context/DashboardContext";
 import { MLFLOW_URL, BACKEND_ROOT_URL } from "@/lib/api";
 import {
-  Shield,
   LayoutDashboard,
   GitFork,
   Activity,
@@ -14,218 +13,169 @@ import {
   BarChart3,
   ShieldAlert,
   Layers,
-  ExternalLink,
-  ChevronLeft,
-  ChevronRight,
+  Sun,
+  Moon,
   Server,
   FileCode2,
-  BookOpen,
 } from "lucide-react";
 
-const NAV_ITEMS = [
-  { href: "/", label: "Overview", icon: LayoutDashboard, tag: "01" },
-  { href: "/canary", label: "Canary Rollout", icon: GitFork, tag: "02" },
-  { href: "/scenarios", label: "Drift Simulator", icon: Activity, tag: "03" },
-  { href: "/ingestion", label: "Traffic Ingestion", icon: Radio, tag: "04" },
-  { href: "/benchmarks", label: "Benchmarks", icon: BarChart3, tag: "05" },
-  { href: "/alerts", label: "Alert Feed", icon: ShieldAlert, tag: "06" },
-  { href: "/lineage", label: "Release Lineage", icon: Layers, tag: "07" },
-];
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badgeCount?: number;
+}
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { sidebarCollapsed, toggleSidebar, backendHealthy, lifecycle, alerts, effectiveAction } = useDashboard();
+  const { alerts, backendHealthy, theme, setTheme } = useDashboard();
+  const NAV_ITEMS: NavItem[] = [
+    { href: "/", label: "Overview", icon: LayoutDashboard },
+    { href: "/canary", label: "Canary Rollout", icon: GitFork },
+    { href: "/scenarios", label: "Drift Simulator", icon: Activity },
+    { href: "/ingestion", label: "Traffic Ingestion", icon: Radio },
+    { href: "/benchmarks", label: "Benchmarks", icon: BarChart3 },
+    { href: "/alerts", label: "Intrusion Feed", icon: ShieldAlert, badgeCount: alerts.length },
+    { href: "/lineage", label: "Model Lineage", icon: Layers },
+  ];
 
   return (
     <aside
-      className={`border-r border-zinc-200/90 bg-white flex flex-col justify-between shrink-0 transition-all duration-300 ease-in-out ${
-        sidebarCollapsed ? "w-16" : "w-64"
-      }`}
+      aria-label="Sidebar Rail"
+      className="w-12 sm:w-14 shrink-0 flex flex-col items-center gap-2.5 sm:gap-3 sticky top-4 select-none"
     >
-      {/* Top Section */}
-      <div className="flex flex-col">
-        {/* Brand & Toggle Bar */}
-        <div className="h-16 border-b border-zinc-200/80 px-4 flex items-center justify-between">
-          {!sidebarCollapsed ? (
-            <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-lg bg-zinc-950 flex items-center justify-center text-white shadow-xs">
-                <Shield className="h-4 w-4" />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-bold text-sm tracking-tight text-zinc-950">
-                  SwayamKavach
-                </span>
-                <span className="text-[10px] font-semibold text-zinc-400 tracking-wider uppercase">
-                  DARI Control Plane
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="h-8 w-8 rounded-lg bg-zinc-950 flex items-center justify-center text-white shadow-xs mx-auto">
-              <Shield className="h-4 w-4" />
-            </div>
-          )}
-
+      {/* Top: Theme / Mode Toggle Pill with Ripple Effect */}
+      <div className="flex flex-col items-center">
+        <div
+          role="radiogroup"
+          aria-label="Theme mode"
+          className="flex flex-col items-center p-1 rounded-full bg-[#F5F4F7] dark:bg-[#1E1B24] border border-[#EAE7ED] dark:border-[#282534] gap-1 shadow-xs"
+        >
           <button
             type="button"
-            onClick={toggleSidebar}
-            className="text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 p-1.5 rounded-md transition-colors cursor-pointer"
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={(e) => setTheme("light", e)}
+            aria-label="Light Theme"
+            title="Switch to Light Theme"
+            className={`p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
+              theme === "light"
+                ? "bg-white dark:bg-[#201D2A] text-[#E76552] shadow-xs font-semibold"
+                : "text-[#85818D] dark:text-[#A5A0AF] hover:text-[#25232B] dark:hover:text-[#F2F1F6]"
+            }`}
           >
-            {sidebarCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
+            <Sun className="h-3.5 w-3.5" />
           </button>
-        </div>
-
-        {/* Navigation Routes */}
-        <div className="p-3 space-y-1">
-          {!sidebarCollapsed && (
-            <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-              Navigation
-            </div>
-          )}
-
-          {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={item.label}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? "bg-zinc-950 text-white shadow-xs font-semibold"
-                    : "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/80"
-                } ${sidebarCollapsed ? "justify-center px-1" : "justify-between"}`}
-              >
-                <div className="flex items-center gap-2.5 truncate">
-                  <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-white" : "text-zinc-500"}`} />
-                  {!sidebarCollapsed && (
-                    <span className="truncate">{item.label}</span>
-                  )}
-                </div>
-
-                {!sidebarCollapsed && item.href === "/alerts" && alerts.length > 0 && (
-                  <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                      isActive ? "bg-zinc-800 text-zinc-100" : "bg-red-100 text-red-700"
-                    }`}
-                  >
-                    {alerts.length}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* External Auxiliary Sections */}
-        <div className="p-3 pt-4 border-t border-zinc-100 mt-2 space-y-1">
-          {!sidebarCollapsed && (
-            <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-              Integrations &amp; Tools
-            </div>
-          )}
-
-          {/* MLflow Registry */}
-          <a
-            href={MLFLOW_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Open MLflow Registry (:5000)"
-            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/80 transition-colors ${
-              sidebarCollapsed ? "justify-center" : "justify-between"
+          <button
+            type="button"
+            onClick={(e) => setTheme("dark", e)}
+            aria-label="Dark Theme"
+            title="Switch to Dark Theme"
+            className={`p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
+              theme === "dark"
+                ? "bg-[#E76552] text-white shadow-coral-soft font-semibold"
+                : "text-[#85818D] dark:text-[#A5A0AF] hover:text-[#25232B] dark:hover:text-[#F2F1F6]"
             }`}
           >
-            <div className="flex items-center gap-2.5">
-              <Server className="h-4 w-4 text-zinc-400 shrink-0" />
-              {!sidebarCollapsed && <span>MLflow Registry</span>}
-            </div>
-            {!sidebarCollapsed && <ExternalLink className="h-3 w-3 text-zinc-400" />}
-          </a>
-
-          {/* FastAPI Swagger Docs */}
-          <a
-            href={`${BACKEND_ROOT_URL}/docs`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Open FastAPI Swagger (:8000/docs)"
-            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/80 transition-colors ${
-              sidebarCollapsed ? "justify-center" : "justify-between"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <FileCode2 className="h-4 w-4 text-zinc-400 shrink-0" />
-              {!sidebarCollapsed && <span>Swagger API</span>}
-            </div>
-            {!sidebarCollapsed && <ExternalLink className="h-3 w-3 text-zinc-400" />}
-          </a>
-
-          {/* ReDoc Technical Spec */}
-          <a
-            href={`${BACKEND_ROOT_URL}/redoc`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Open ReDoc Specs (:8000/redoc)"
-            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/80 transition-colors ${
-              sidebarCollapsed ? "justify-center" : "justify-between"
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <BookOpen className="h-4 w-4 text-zinc-400 shrink-0" />
-              {!sidebarCollapsed && <span>ReDoc Specs</span>}
-            </div>
-            {!sidebarCollapsed && <ExternalLink className="h-3 w-3 text-zinc-400" />}
-          </a>
+            <Moon className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
 
-      {/* Bottom Telemetry Status */}
-      <div className="p-3.5 border-t border-zinc-200/80 bg-zinc-50/70 text-xs space-y-2">
-        {!sidebarCollapsed ? (
-          <>
-            <div className="flex items-center justify-between text-zinc-600">
-              <span className="font-medium text-zinc-500">Backend Server</span>
-              <span
-                className={`inline-flex items-center gap-1 font-semibold ${
-                  backendHealthy ? "text-emerald-700" : "text-red-700"
+      {/* Center: Vertical Icon Navigation Rail (Compact floating capsule with perfectly centered focus) */}
+      <nav
+        aria-label="Rail Navigation"
+        className="flex flex-col items-center p-1 sm:p-1.5 rounded-3xl bg-[#F5F4F7] dark:bg-[#1E1B24] border border-[#EAE7ED] dark:border-[#282534] gap-1 sm:gap-1.5 shadow-xs"
+      >
+        {NAV_ITEMS.map((item) => {
+          const isActive = pathname === item.href;
+          const Icon = item.icon;
+          return (
+            <div key={item.href} className="relative group">
+              <Link
+                href={item.href}
+                aria-label={item.label}
+                data-active={isActive ? "true" : "false"}
+                className={`relative flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-2xl transition-all duration-200 cursor-pointer ${
+                  isActive
+                    ? "bg-coral-gradient text-white shadow-coral-soft font-semibold"
+                    : "text-[#85818D] dark:text-[#A5A0AF] hover:text-[#25232B] dark:hover:text-[#F2F1F6] hover:bg-black/5 dark:hover:bg-white/5"
                 }`}
               >
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    backendHealthy ? "bg-emerald-600" : "bg-red-600"
-                  }`}
-                />
-                {backendHealthy ? "Online (:8000)" : "Offline"}
-              </span>
+                <Icon className={`h-4 w-4 sm:h-4.5 sm:w-4.5 stroke-[1.8] ${isActive ? "text-white" : ""}`} />
+
+                {item.badgeCount && item.badgeCount > 0 ? (
+                  <span
+                    className={`absolute top-1 right-1 h-2 w-2 rounded-full ring-2 ${
+                      isActive
+                        ? "bg-white ring-[#E76552]"
+                        : "bg-[#E76552] ring-[#F5F4F7] dark:ring-[#1E1B24]"
+                    }`}
+                  />
+                ) : null}
+              </Link>
+
+              {/* Tooltip on hover */}
+              <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-[#25232B] dark:bg-[#201D2A] text-white text-[11px] font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity shadow-md z-50 border border-transparent dark:border-[#3E3A4D]">
+                <span>{item.label}</span>
+                {item.badgeCount && item.badgeCount > 0 ? (
+                  <span className="ml-1 text-[10px] text-[#F7C6BF]">({item.badgeCount})</span>
+                ) : null}
+                <div className="absolute right-full top-1/2 -translate-y-1/2 -mr-1 border-4 border-transparent border-r-[#25232B] dark:border-r-[#201D2A]" />
+              </div>
             </div>
-            <div className="flex items-center justify-between text-zinc-600">
-              <span className="font-medium text-zinc-500">Serving Slot</span>
-              <span className="font-semibold text-zinc-900">
-                Slot {lifecycle.active_slot} ({lifecycle.champion_release})
-              </span>
+          );
+        })}
+      </nav>
+
+      {/* Bottom: Secondary Actions & Health Beacon */}
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center p-1 rounded-full bg-[#F5F4F7] dark:bg-[#1E1B24] border border-[#EAE7ED] dark:border-[#282534] gap-1 shadow-xs">
+          {/* MLflow Registry */}
+          <div className="relative group">
+            <a
+              href={MLFLOW_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="MLflow Registry"
+              className="flex items-center justify-center h-8 w-8 rounded-full text-[#85818D] dark:text-[#A5A0AF] hover:text-[#25232B] dark:hover:text-[#F2F1F6] hover:bg-white dark:hover:bg-[#282534] transition-colors"
+            >
+              <Server className="h-3.5 w-3.5" />
+            </a>
+            <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-[#25232B] dark:bg-[#201D2A] text-white text-[11px] font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity shadow-md z-50 border border-transparent dark:border-[#3E3A4D]">
+              MLflow Registry (:5000)
+              <div className="absolute right-full top-1/2 -translate-y-1/2 -mr-1 border-4 border-transparent border-r-[#25232B] dark:border-r-[#201D2A]" />
             </div>
-            <div className="flex items-center justify-between text-zinc-600">
-              <span className="font-medium text-zinc-500">Active Policy</span>
-              <span className="font-bold text-zinc-900">
-                {effectiveAction || lifecycle.chosen_action || "A0"}
-              </span>
-            </div>
-          </>
-        ) : (
-          <div className="flex justify-center py-1">
-            <span
-              className={`h-2.5 w-2.5 rounded-full ${
-                backendHealthy ? "bg-emerald-600" : "bg-red-600"
-              }`}
-              title={backendHealthy ? "Backend Online" : "Backend Offline"}
-            />
           </div>
-        )}
+
+          {/* Swagger API Docs */}
+          <div className="relative group">
+            <a
+              href={`${BACKEND_ROOT_URL}/docs`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Swagger API Docs"
+              className="flex items-center justify-center h-8 w-8 rounded-full text-[#85818D] dark:text-[#A5A0AF] hover:text-[#25232B] dark:hover:text-[#F2F1F6] hover:bg-white dark:hover:bg-[#282534] transition-colors"
+            >
+              <FileCode2 className="h-3.5 w-3.5" />
+            </a>
+            <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-[#25232B] dark:bg-[#201D2A] text-white text-[11px] font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity shadow-md z-50 border border-transparent dark:border-[#3E3A4D]">
+              Swagger API Docs (:8000)
+              <div className="absolute right-full top-1/2 -translate-y-1/2 -mr-1 border-4 border-transparent border-r-[#25232B] dark:border-r-[#201D2A]" />
+            </div>
+          </div>
+        </div>
+
+        {/* Backend Connectivity Status Dot */}
+        <div className="relative group mt-0.5">
+          <div
+            className={`h-2.5 w-2.5 rounded-full flex items-center justify-center transition-all ${
+              backendHealthy ? "bg-emerald-500 ring-3 ring-emerald-100 dark:ring-emerald-950/60" : "bg-red-500 ring-3 ring-red-100 dark:ring-red-950/60"
+            }`}
+          />
+          <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg bg-[#25232B] dark:bg-[#201D2A] text-white text-[11px] font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity shadow-md z-50 border border-transparent dark:border-[#3E3A4D]">
+            {backendHealthy ? "Control Plane: Online" : "Control Plane: Offline"}
+            <div className="absolute right-full top-1/2 -translate-y-1/2 -mr-1 border-4 border-transparent border-r-[#25232B] dark:border-r-[#201D2A]" />
+          </div>
+        </div>
       </div>
     </aside>
   );

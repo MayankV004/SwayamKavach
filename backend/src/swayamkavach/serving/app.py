@@ -102,6 +102,7 @@ def reload_slot_model(release_id: str | None = None, threshold: float | None = N
     loaded = load_model_bundle(target_rel, threshold=threshold)
     return {
         "status": "reloaded" if loaded else ("fallback_active" if _is_ready else "not_ready"),
+        "is_ready": _is_ready,
         "slot_id": SLOT_ID,
         "release_id": RELEASE_ID,
         "model_version": MODEL_VERSION,
@@ -116,6 +117,7 @@ def livez():
     """Liveness probe."""
     return {
         "status": "alive",
+        "is_ready": _is_ready,
         "slot": SLOT_ID,
         "inference_mode": "pipeline" if _pipeline is not None else "heuristic",
     }
@@ -130,6 +132,7 @@ def readyz():
         )
     return {
         "status": "ready",
+        "is_ready": _is_ready,
         "slot": SLOT_ID,
         "release_id": RELEASE_ID,
         "threshold": DECISION_THRESHOLD,

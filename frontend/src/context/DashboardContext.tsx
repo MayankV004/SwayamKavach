@@ -30,6 +30,9 @@ import {
 } from "@/lib/api";
 
 interface DashboardContextType {
+  theme: "light" | "dark";
+  setTheme: (theme: "light" | "dark", event?: React.MouseEvent | MouseEvent) => void;
+  toggleTheme: (event?: React.MouseEvent | MouseEvent) => void;
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
   backendHealthy: boolean | null;
@@ -66,6 +69,154 @@ interface DashboardContextType {
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
+  const [theme, setThemeState] = useState<"light" | "dark">(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("swayamkavach-theme");
+        if (stored === "dark" || stored === "light") {
+          return stored;
+        }
+        if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+          return "dark";
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return "light";
+  });
+
+  // Sync document element class with theme state
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    }
+  }, [theme]);
+
+  const applyThemeWithTransition = useCallback(
+    (targetTheme: "light" | "dark", event?: React.MouseEvent | MouseEvent) => {
+      let x = typeof window !== "undefined" ? window.innerWidth / 2 : 0;
+      let y = typeof window !== "undefined" ? window.innerHeight / 2 : 0;
+
+      if (event && event.clientX !== undefined && event.clientY !== undefined && (event.clientX > 0 || event.clientY > 0)) {
+        x = event.clientX;
+        y = event.clientY;
+      } else if (typeof document !== "undefined") {
+        // Fallback: look for active theme button
+        const activeBtn = document.activeElement as HTMLElement | null;
+        if (activeBtn && activeBtn.getBoundingClientRect) {
+          const rect = activeBtn.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            x = rect.left + rect.width / 2;
+            y = rect.top + rect.height / 2;
+          }
+        }
+      }
+
+      if (typeof document !== "undefined" && typeof window !== "undefined") {
+        const maxDim = Math.max(window.innerWidth, window.innerHeight) * 2.6;
+
+        // 1. Primary soft radial wave
+        const wave = document.createElement("div");
+        wave.className = "theme-ripple-wave";
+        wave.style.width = `${maxDim}px`;
+        wave.style.height = `${maxDim}px`;
+        wave.style.left = `${x}px`;
+        wave.style.top = `${y}px`;
+        wave.style.background =
+          targetTheme === "dark"
+            ? "radial-gradient(circle, rgba(231,101,82,0.35) 0%, rgba(22,21,29,0.85) 45%, rgba(15,14,19,0.98) 100%)"
+            : "radial-gradient(circle, rgba(255,255,255,0.98) 0%, rgba(245,244,247,0.88) 55%, rgba(231,101,82,0.25) 100%)";
+        document.body.appendChild(wave);
+        setTimeout(() => wave.remove(), 800);
+
+        // 2. Concentric Ripple Ring 1 (Immediate high-tension ripple)
+        const ring1 = document.createElement("div");
+        ring1.className = "theme-ripple-ring";
+        ring1.style.width = `${maxDim}px`;
+        ring1.style.height = `${maxDim}px`;
+        ring1.style.left = `${x}px`;
+        ring1.style.top = `${y}px`;
+        ring1.style.borderColor = targetTheme === "dark" ? "rgba(231, 101, 82, 0.9)" : "rgba(231, 101, 82, 0.7)";
+        ring1.style.boxShadow = targetTheme === "dark" ? "0 0 25px rgba(231,101,82,0.4)" : "0 0 20px rgba(231,101,82,0.3)";
+        document.body.appendChild(ring1);
+        setTimeout(() => ring1.remove(), 900);
+
+        // 3. Concentric Ripple Ring 2 (Delayed secondary wave echo)
+        const ring2 = document.createElement("div");
+        ring2.className = "theme-ripple-ring";
+        ring2.style.width = `${maxDim * 1.15}px`;
+        ring2.style.height = `${maxDim * 1.15}px`;
+        ring2.style.left = `${x}px`;
+        ring2.style.top = `${y}px`;
+        ring2.style.animationDelay = "110ms";
+        ring2.style.borderColor = targetTheme === "dark" ? "rgba(255, 255, 255, 0.5)" : "rgba(41, 38, 47, 0.35)";
+        document.body.appendChild(ring2);
+        setTimeout(() => ring2.remove(), 1050);
+      }
+
+      const updateDom = () => {
+        setThemeState(targetTheme);
+        try {
+          localStorage.setItem("swayamkavach-theme", targetTheme);
+          if (typeof document !== "undefined") {
+            document.documentElement.classList.toggle("dark", targetTheme === "dark");
+          }
+        } catch {
+          // ignore
+        }
+      };
+
+      if (typeof document !== "undefined" && "startViewTransition" in document) {
+        const endRadius = Math.hypot(
+          Math.max(x, window.innerWidth - x),
+          Math.max(y, window.innerHeight - y)
+        );
+
+        const docWithTransition = document as unknown as {
+          startViewTransition: (cb: () => Promise<void> | void) => { ready?: Promise<void> };
+        };
+        const transition = docWithTransition.startViewTransition(async () => {
+          updateDom();
+        });
+
+        transition.ready?.then(() => {
+          document.documentElement.animate(
+            {
+              clipPath: [
+                `circle(0px at ${x}px ${y}px)`,
+                `circle(${endRadius}px at ${x}px ${y}px)`,
+              ],
+            },
+            {
+              duration: 550,
+              easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+              pseudoElement: "::view-transition-new(root)",
+            }
+          );
+        });
+      } else {
+        updateDom();
+      }
+    },
+    []
+  );
+
+  const setTheme = useCallback(
+    (newTheme: "light" | "dark", event?: React.MouseEvent | MouseEvent) => {
+      applyThemeWithTransition(newTheme, event);
+    },
+    [applyThemeWithTransition]
+  );
+
+  const toggleTheme = useCallback(
+    (event?: React.MouseEvent | MouseEvent) => {
+      const nextTheme = theme === "light" ? "dark" : "light";
+      applyThemeWithTransition(nextTheme, event);
+    },
+    [theme, applyThemeWithTransition]
+  );
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [backendHealthy, setBackendHealthy] = useState<boolean | null>(null);
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
@@ -423,6 +574,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   return (
     <DashboardContext.Provider
       value={{
+        theme,
+        setTheme,
+        toggleTheme,
         sidebarCollapsed,
         toggleSidebar,
         backendHealthy,

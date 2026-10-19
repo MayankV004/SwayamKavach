@@ -54,7 +54,7 @@ const TabsList = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "inline-flex h-9 items-center justify-center rounded-lg bg-zinc-100 p-1 text-zinc-500 border border-zinc-200/80",
+      "inline-flex h-9 items-center justify-center rounded-full bg-[#F5F4F7] dark:bg-[#1E1B24] p-1 text-[#85818D] dark:text-[#A5A0AF] border border-[#EAE7ED] dark:border-[#282534]",
       className
     )}
     {...props}
@@ -80,10 +80,10 @@ const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
         aria-selected={isSelected}
         onClick={() => context.onValueChange(value)}
         className={cn(
-          "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs font-medium ring-offset-white transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
+          "inline-flex items-center justify-center whitespace-nowrap rounded-full px-3.5 py-1 text-xs font-medium transition-all duration-150 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 cursor-pointer select-none",
           isSelected
-            ? "bg-white text-zinc-950 shadow-xs font-semibold"
-            : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/50",
+            ? "bg-[#E76552] text-white shadow-coral-soft font-semibold"
+            : "text-[#85818D] dark:text-[#A5A0AF] hover:text-[#25232B] dark:hover:text-[#F2F1F6]",
           className
         )}
         {...props}
@@ -109,7 +109,7 @@ const TabsContent = React.forwardRef<HTMLDivElement, TabsContentProps>(
         ref={ref}
         role="tabpanel"
         className={cn(
-          "ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 animate-fade-in",
+          "ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E76552] animate-fade-in",
           className
         )}
         {...props}
