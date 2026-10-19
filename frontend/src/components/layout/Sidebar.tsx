@@ -13,8 +13,6 @@ import {
   BarChart3,
   ShieldAlert,
   Layers,
-  Sun,
-  Moon,
   Server,
   FileCode2,
 } from "lucide-react";
@@ -28,7 +26,7 @@ interface NavItem {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { alerts, backendHealthy, theme, setTheme } = useDashboard();
+  const { alerts, backendHealthy } = useDashboard();
   const NAV_ITEMS: NavItem[] = [
     { href: "/", label: "Overview", icon: LayoutDashboard },
     { href: "/canary", label: "Canary Rollout", icon: GitFork },
@@ -44,41 +42,6 @@ export function Sidebar() {
       aria-label="Sidebar Rail"
       className="w-12 sm:w-14 shrink-0 flex flex-col items-center gap-2.5 sm:gap-3 sticky top-4 select-none"
     >
-      {/* Top: Theme / Mode Toggle Pill with Ripple Effect */}
-      <div className="flex flex-col items-center">
-        <div
-          role="radiogroup"
-          aria-label="Theme mode"
-          className="flex flex-col items-center p-1 rounded-full bg-[#F5F4F7] dark:bg-[#1E1B24] border border-[#EAE7ED] dark:border-[#282534] gap-1 shadow-xs"
-        >
-          <button
-            type="button"
-            onClick={(e) => setTheme("light", e)}
-            aria-label="Light Theme"
-            title="Switch to Light Theme"
-            className={`p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
-              theme === "light"
-                ? "bg-white dark:bg-[#201D2A] text-[#E76552] shadow-xs font-semibold"
-                : "text-[#85818D] dark:text-[#A5A0AF] hover:text-[#25232B] dark:hover:text-[#F2F1F6]"
-            }`}
-          >
-            <Sun className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={(e) => setTheme("dark", e)}
-            aria-label="Dark Theme"
-            title="Switch to Dark Theme"
-            className={`p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
-              theme === "dark"
-                ? "bg-[#E76552] text-white shadow-coral-soft font-semibold"
-                : "text-[#85818D] dark:text-[#A5A0AF] hover:text-[#25232B] dark:hover:text-[#F2F1F6]"
-            }`}
-          >
-            <Moon className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
 
       {/* Center: Vertical Icon Navigation Rail (Compact floating capsule with perfectly centered focus) */}
       <nav

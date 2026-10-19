@@ -113,48 +113,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      if (typeof document !== "undefined" && typeof window !== "undefined") {
-        const maxDim = Math.max(window.innerWidth, window.innerHeight) * 2.6;
-
-        // 1. Primary soft radial wave
-        const wave = document.createElement("div");
-        wave.className = "theme-ripple-wave";
-        wave.style.width = `${maxDim}px`;
-        wave.style.height = `${maxDim}px`;
-        wave.style.left = `${x}px`;
-        wave.style.top = `${y}px`;
-        wave.style.background =
-          targetTheme === "dark"
-            ? "radial-gradient(circle, rgba(231,101,82,0.35) 0%, rgba(22,21,29,0.85) 45%, rgba(15,14,19,0.98) 100%)"
-            : "radial-gradient(circle, rgba(255,255,255,0.98) 0%, rgba(245,244,247,0.88) 55%, rgba(231,101,82,0.25) 100%)";
-        document.body.appendChild(wave);
-        setTimeout(() => wave.remove(), 800);
-
-        // 2. Concentric Ripple Ring 1 (Immediate high-tension ripple)
-        const ring1 = document.createElement("div");
-        ring1.className = "theme-ripple-ring";
-        ring1.style.width = `${maxDim}px`;
-        ring1.style.height = `${maxDim}px`;
-        ring1.style.left = `${x}px`;
-        ring1.style.top = `${y}px`;
-        ring1.style.borderColor = targetTheme === "dark" ? "rgba(231, 101, 82, 0.9)" : "rgba(231, 101, 82, 0.7)";
-        ring1.style.boxShadow = targetTheme === "dark" ? "0 0 25px rgba(231,101,82,0.4)" : "0 0 20px rgba(231,101,82,0.3)";
-        document.body.appendChild(ring1);
-        setTimeout(() => ring1.remove(), 900);
-
-        // 3. Concentric Ripple Ring 2 (Delayed secondary wave echo)
-        const ring2 = document.createElement("div");
-        ring2.className = "theme-ripple-ring";
-        ring2.style.width = `${maxDim * 1.15}px`;
-        ring2.style.height = `${maxDim * 1.15}px`;
-        ring2.style.left = `${x}px`;
-        ring2.style.top = `${y}px`;
-        ring2.style.animationDelay = "110ms";
-        ring2.style.borderColor = targetTheme === "dark" ? "rgba(255, 255, 255, 0.5)" : "rgba(41, 38, 47, 0.35)";
-        document.body.appendChild(ring2);
-        setTimeout(() => ring2.remove(), 1050);
-      }
-
       const updateDom = () => {
         setThemeState(targetTheme);
         try {
@@ -167,34 +125,56 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
-      if (typeof document !== "undefined" && "startViewTransition" in document) {
-        const endRadius = Math.hypot(
-          Math.max(x, window.innerWidth - x),
-          Math.max(y, window.innerHeight - y)
-        );
-
-        const docWithTransition = document as unknown as {
-          startViewTransition: (cb: () => Promise<void> | void) => { ready?: Promise<void> };
+      // Native hardware-accelerated View Transition Circular Ripple (Butter smooth 60/120fps)
+      if (typeof window !== "undefined" && typeof document !== "undefined") {
+        const doc = document;
+        const win = window;
+        const docWithVT = doc as unknown as {
+          startViewTransition?: (cb: () => Promise<void> | void) => { ready?: Promise<void> };
         };
-        const transition = docWithTransition.startViewTransition(async () => {
-          updateDom();
-        });
 
-        transition.ready?.then(() => {
-          document.documentElement.animate(
-            {
-              clipPath: [
-                `circle(0px at ${x}px ${y}px)`,
-                `circle(${endRadius}px at ${x}px ${y}px)`,
-              ],
-            },
-            {
-              duration: 550,
-              easing: "cubic-bezier(0.16, 1, 0.3, 1)",
-              pseudoElement: "::view-transition-new(root)",
-            }
+        if (typeof docWithVT.startViewTransition === "function") {
+          const endRadius = Math.hypot(
+            Math.max(x, win.innerWidth - x),
+            Math.max(y, win.innerHeight - y)
           );
-        });
+
+          const transition = docWithVT.startViewTransition(async () => {
+            updateDom();
+          });
+
+          transition.ready?.then(() => {
+            doc.documentElement.animate(
+              {
+                clipPath: [
+                  `circle(0px at ${x}px ${y}px)`,
+                  `circle(${endRadius}px at ${x}px ${y}px)`,
+                ],
+              },
+              {
+                duration: 450,
+                easing: "cubic-bezier(0.2, 0.9, 0.3, 1)",
+                pseudoElement: "::view-transition-new(root)",
+              }
+            );
+          });
+        } else {
+          // Fallback for browsers without native View Transitions
+          const maxDim = Math.max(win.innerWidth, win.innerHeight) * 2.4;
+          const wave = doc.createElement("div");
+          wave.className = "theme-ripple-wave";
+          wave.style.width = `${maxDim}px`;
+          wave.style.height = `${maxDim}px`;
+          wave.style.left = `${x}px`;
+          wave.style.top = `${y}px`;
+          wave.style.background =
+            targetTheme === "dark"
+              ? "radial-gradient(circle, rgba(231,101,82,0.25) 0%, rgba(22,21,29,0.92) 55%, rgba(15,14,19,0.98) 100%)"
+              : "radial-gradient(circle, rgba(255,255,255,0.98) 0%, rgba(245,244,247,0.9) 55%, rgba(231,101,82,0.18) 100%)";
+          doc.body.appendChild(wave);
+          updateDom();
+          setTimeout(() => wave.remove(), 450);
+        }
       } else {
         updateDom();
       }
