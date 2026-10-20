@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -10,7 +11,7 @@ from sqlalchemy.orm import Session
 from schemas.lifecycle import DamageFingerprint, LifecycleState, RepairAction
 from swayamkavach.api.auth import OperatorContext, require_permission
 from swayamkavach.damage.calculator import DamageCalculator
-from swayamkavach.db.models import LifecycleStateRecordDB
+from swayamkavach.db.models import EvaluationReportRecordDB, LifecycleStateRecordDB
 from swayamkavach.db.session import get_db
 from swayamkavach.monitoring.window import WindowSelector
 
@@ -206,8 +207,6 @@ def reset_lifecycle_state(
 
     # Seed nominal baseline evaluation report
     try:
-        from swayamkavach.db.models import EvaluationReportRecordDB
-        import uuid
         nominal_report = EvaluationReportRecordDB(
             report_id=f"EVAL_R1_R2-candidate_{uuid.uuid4().hex[:8]}",
             champion_release="R1",
