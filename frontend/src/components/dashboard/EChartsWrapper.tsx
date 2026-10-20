@@ -11,6 +11,8 @@ interface EChartsWrapperProps {
   style?: React.CSSProperties;
   className?: string;
   loading?: boolean;
+  notMerge?: boolean;
+  replaceMerge?: string | string[];
 }
 
 export function EChartsWrapper({
@@ -18,6 +20,8 @@ export function EChartsWrapper({
   style = { height: "360px", width: "100%" },
   className = "",
   loading = false,
+  notMerge = false,
+  replaceMerge = ["xAxis", "yAxis", "series"],
 }: EChartsWrapperProps) {
   const isMounted = useSyncExternalStore(
     subscribe,
@@ -53,8 +57,9 @@ export function EChartsWrapper({
           textColor: theme === "dark" ? "#F2F1F6" : "#25232B",
           maskColor: theme === "dark" ? "rgba(22, 21, 29, 0.7)" : "rgba(255, 255, 255, 0.7)",
         }}
-        notMerge={true}
-        lazyUpdate={true}
+        notMerge={notMerge}
+        replaceMerge={replaceMerge}
+        lazyUpdate={false}
       />
     </div>
   );

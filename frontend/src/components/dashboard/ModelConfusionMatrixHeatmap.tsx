@@ -23,12 +23,23 @@ export function ModelConfusionMatrixHeatmap({ models }: ModelConfusionMatrixHeat
   const activeModel =
     models.find((m) => m.id === selectedModelId) || models[0] || null;
 
-  if (!activeModel) return null;
-
   const metrics =
-    thresholdMode === "calibrated"
+    activeModel && thresholdMode === "calibrated"
       ? activeModel.calibrated_metrics
-      : activeModel.default_metrics;
+      : activeModel?.default_metrics || {
+          tp: 0,
+          fp: 0,
+          tn: 0,
+          fn: 0,
+          accuracy: 0,
+          precision: 0,
+          recall: 0,
+          f1: 0,
+          fpr: 0,
+          roc_auc: 0,
+          pr_auc: 0,
+          threshold: 0.5,
+        };
 
   const { tp, fp, tn, fn } = metrics;
   const totalNormal = tn + fp; // 7,500
@@ -41,23 +52,17 @@ export function ModelConfusionMatrixHeatmap({ models }: ModelConfusionMatrixHeat
   const fnr = totalAttack > 0 ? (fn / totalAttack) * 100 : 0;
   const tpr = totalAttack > 0 ? (tp / totalAttack) * 100 : 0;
 
-  // ECharts Heatmap coordinate system:
-  // xAxis: Predicted Class [0: "Predicted Normal", 1: "Predicted Attack"]
-  // yAxis: Actual Class [0: "Actual Attack", 1: "Actual Normal"] (ECharts y-axis starts from bottom (0) to top (1))
-  // To have Row 0 = Actual Normal (top) and Row 1 = Actual Attack (bottom):
-  // Let yAxis categories be ["Actual Attack (1)", "Actual Normal (0)"]
-  // y=1 is Actual Normal; y=0 is Actual Attack.
-  // Data format: [x, y, value, rawCount, rate, labelType, rowTotal]
-  const data = [
-    // Actual Normal (y=1)
-    [0, 1, displayMode === "raw" ? tn : +tnr.toFixed(2), tn, tnr, "True Negative (TN)", totalNormal],
-    [1, 1, displayMode === "raw" ? fp : +fpr.toFixed(2), fp, fpr, "False Positive (FP / False Alarm)", totalNormal],
-    // Actual Attack (y=0)
-    [0, 0, displayMode === "raw" ? fn : +fnr.toFixed(2), fn, fnr, "False Negative (FN / Missed Attack)", totalAttack],
-    [1, 0, displayMode === "raw" ? tp : +tpr.toFixed(2), tp, tpr, "True Positive (TP / Detected Attack)", totalAttack],
-  ];
+  const option: EChartsOption = React.useMemo(() => {
+    const data = [
+      // Actual Normal (y=1)
+      [0, 1, displayMode === "raw" ? tn : +tnr.toFixed(2), tn, tnr, "True Negative (TN)", totalNormal],
+      [1, 1, displayMode === "raw" ? fp : +fpr.toFixed(2), fp, fpr, "False Positive (FP / False Alarm)", totalNormal],
+      // Actual Attack (y=0)
+      [0, 0, displayMode === "raw" ? fn : +fnr.toFixed(2), fn, fnr, "False Negative (FN / Missed Attack)", totalAttack],
+      [1, 0, displayMode === "raw" ? tp : +tpr.toFixed(2), tp, tpr, "True Positive (TP / Detected Attack)", totalAttack],
+    ];
 
-  const option: EChartsOption = {
+    return {
     backgroundColor: "transparent",
     tooltip: {
       position: "top",
@@ -210,6 +215,9 @@ export function ModelConfusionMatrixHeatmap({ models }: ModelConfusionMatrixHeat
       },
     ],
   };
+  }, [displayMode, isDark, tn, fp, fn, tp, tnr, fpr, fnr, tpr, totalNormal, totalAttack]);
+
+  if (!activeModel) return null;
 
   return (
     <div className="rounded-2xl border border-[#EAE7ED] dark:border-[#282534] bg-white dark:bg-[#16151D] p-5 sm:p-6 shadow-subtle space-y-4">

@@ -282,21 +282,59 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const lc = await fetchLifecycleState();
-      setLifecycle(lc);
+      setLifecycle((prev) => {
+        if (
+          prev &&
+          prev.updated_at === lc.updated_at &&
+          prev.chosen_action === lc.chosen_action &&
+          prev.canary_weight === lc.canary_weight &&
+          prev.active_slot === lc.active_slot &&
+          prev.champion_release === lc.champion_release &&
+          prev.candidate_release === lc.candidate_release &&
+          prev.candidate_slot === lc.candidate_slot
+        ) {
+          return prev;
+        }
+        return lc;
+      });
     } catch (e) {
       console.error(e);
     }
 
     try {
       const ev = await fetchLatestEvaluationReport();
-      if (ev) setEvaluationReport(ev);
+      if (ev) {
+        setEvaluationReport((prev) => {
+          if (
+            prev &&
+            prev.report_id === ev.report_id &&
+            prev.created_at === ev.created_at &&
+            prev.verdict === ev.verdict
+          ) {
+            return prev;
+          }
+          return ev;
+        });
+      }
     } catch (e) {
       console.error(e);
     }
 
     try {
       const mb = await fetchModelBenchmarks();
-      if (mb) setModelBenchmarks(mb);
+      if (mb) {
+        setModelBenchmarks((prev) => {
+          if (
+            prev &&
+            prev.release_id === mb.release_id &&
+            prev.packaged_at === mb.packaged_at &&
+            prev.training_rows === mb.training_rows
+          ) {
+            return prev;
+          }
+          return mb;
+        });
+      }
     } catch (e) {
       console.error(e);
     }
@@ -315,7 +353,19 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setLoadingBenchmark(true);
     try {
       const data = await fetchBenchmarkReport(10);
-      if (data) setBenchmarkReport(data);
+      if (data) {
+        setBenchmarkReport((prev) => {
+          if (
+            prev &&
+            prev.report_id === data.report_id &&
+            prev.created_at === data.created_at &&
+            prev.total_windows_evaluated === data.total_windows_evaluated
+          ) {
+            return prev;
+          }
+          return data;
+        });
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -327,7 +377,19 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setLoadingModelBenchmarks(true);
     try {
       const data = await fetchModelBenchmarks();
-      if (data) setModelBenchmarks(data);
+      if (data) {
+        setModelBenchmarks((prev) => {
+          if (
+            prev &&
+            prev.release_id === data.release_id &&
+            prev.packaged_at === data.packaged_at &&
+            prev.training_rows === data.training_rows
+          ) {
+            return prev;
+          }
+          return data;
+        });
+      }
     } catch (e) {
       console.error(e);
     } finally {

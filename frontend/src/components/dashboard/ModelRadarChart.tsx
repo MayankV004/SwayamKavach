@@ -11,136 +11,140 @@ interface ModelRadarChartProps {
   models: CandidateModelSummary[];
 }
 
+const RADAR_INDICATORS = [
+  { name: "Accuracy", min: 99.2, max: 100 },
+  { name: "Precision", min: 99.2, max: 100 },
+  { name: "Recall", min: 99.2, max: 100 },
+  { name: "F1-Score", min: 99.2, max: 100 },
+  { name: "ROC-AUC", min: 99.5, max: 100 },
+  { name: "PR-AUC", min: 99.5, max: 100 },
+];
+
 export function ModelRadarChart({ models }: ModelRadarChartProps) {
   const { theme } = useDashboard();
   const [activeThreshold, setActiveThreshold] = useState<"calibrated" | "default">("calibrated");
 
   const isDark = theme === "dark";
 
-  const indicators = [
-    { name: "Accuracy", min: 99.2, max: 100 },
-    { name: "Precision", min: 99.2, max: 100 },
-    { name: "Recall", min: 99.2, max: 100 },
-    { name: "F1-Score", min: 99.2, max: 100 },
-    { name: "ROC-AUC", min: 99.5, max: 100 },
-    { name: "PR-AUC", min: 99.5, max: 100 },
-  ];
+  const option: EChartsOption = React.useMemo(() => {
+    const colors = {
+      DecisionTree: isDark ? "#38BDF8" : "#0284C7",
+      HistGradientBoosting: "#E76552", // Coral (Champion)
+      LightGBM: isDark ? "#A78BFA" : "#7C3AED",
+    };
 
-  const colors = {
-    DecisionTree: isDark ? "#38BDF8" : "#0284C7",
-    HistGradientBoosting: "#E76552", // Coral (Champion)
-    LightGBM: isDark ? "#A78BFA" : "#7C3AED",
-  };
+    const seriesData = models.map((model) => {
+      const m = activeThreshold === "calibrated" ? model.calibrated_metrics : model.default_metrics;
+      const modelColor = colors[model.id] || "#E76552";
 
-  const seriesData = models.map((model) => {
-    const m = activeThreshold === "calibrated" ? model.calibrated_metrics : model.default_metrics;
-    const modelColor = colors[model.id] || "#E76552";
+      return {
+        value: [
+          +(m.accuracy * 100).toFixed(3),
+          +(m.precision * 100).toFixed(3),
+          +(m.recall * 100).toFixed(3),
+          +(m.f1 * 100).toFixed(3),
+          +(m.roc_auc * 100).toFixed(3),
+          +(m.pr_auc * 100).toFixed(3),
+        ],
+        name: model.name + (model.is_champion ? " (Champion)" : ""),
+        itemStyle: {
+          color: modelColor,
+        },
+        lineStyle: {
+          width: model.is_champion ? 2.5 : 1.8,
+          color: modelColor,
+        },
+        areaStyle: {
+          color: modelColor + (model.is_champion ? "33" : "18"),
+        },
+      };
+    });
 
     return {
-      value: [
-        +(m.accuracy * 100).toFixed(3),
-        +(m.precision * 100).toFixed(3),
-        +(m.recall * 100).toFixed(3),
-        +(m.f1 * 100).toFixed(3),
-        +(m.roc_auc * 100).toFixed(3),
-        +(m.pr_auc * 100).toFixed(3),
+      backgroundColor: "transparent",
+      tooltip: {
+        trigger: "item",
+        backgroundColor: isDark ? "#1B1924" : "#FFFFFF",
+        borderColor: isDark ? "#282534" : "#EAE7ED",
+        borderWidth: 1,
+        textStyle: {
+          color: isDark ? "#F2F1F6" : "#25232B",
+          fontSize: 12,
+        },
+        formatter: (params: unknown) => {
+          const item = params as {
+            name: string;
+            value: number[];
+          };
+          if (!item || !item.value || !Array.isArray(item.value)) return "";
+          let res = `<div class="font-bold text-xs mb-1.5 pb-1 border-b ${
+            isDark ? "border-[#282534]" : "border-[#EAE7ED]"
+          }">${item.name}</div>`;
+          RADAR_INDICATORS.forEach((ind, i) => {
+            const val = item.value[i];
+            if (val == null) return;
+            res += `
+              <div class="flex items-center justify-between gap-4 py-0.5 text-xs">
+                <span class="text-[#85818D] dark:text-[#A5A0AF]">${ind.name}:</span>
+                <span class="font-mono font-bold">${Number(val).toFixed(3)}%</span>
+              </div>
+            `;
+          });
+          return res;
+        },
+      },
+      legend: {
+        top: 0,
+        right: 0,
+        icon: "roundRect",
+        itemWidth: 14,
+        itemHeight: 10,
+        textStyle: {
+          color: isDark ? "#A5A0AF" : "#85818D",
+          fontSize: 11,
+        },
+      },
+      radar: {
+        indicator: RADAR_INDICATORS,
+        shape: "polygon",
+        splitNumber: 4,
+        radius: "68%",
+        center: ["50%", "56%"],
+        axisName: {
+          color: isDark ? "#A5A0AF" : "#85818D",
+          fontSize: 11,
+          fontWeight: 600,
+        },
+        splitLine: {
+          lineStyle: {
+            color: isDark ? "#282534" : "#EAE7ED",
+          },
+        },
+        splitArea: {
+          show: true,
+          areaStyle: {
+            color: isDark
+              ? ["rgba(255, 255, 255, 0.01)", "rgba(255, 255, 255, 0.025)"]
+              : ["rgba(0, 0, 0, 0.01)", "rgba(0, 0, 0, 0.02)"],
+          },
+        },
+        axisLine: {
+          lineStyle: {
+            color: isDark ? "#282534" : "#EAE7ED",
+          },
+        },
+      },
+      series: [
+        {
+          name: "Model Profile",
+          type: "radar",
+          symbol: "circle",
+          symbolSize: 4,
+          data: seriesData,
+        },
       ],
-      name: model.name + (model.is_champion ? " (Champion)" : ""),
-      itemStyle: {
-        color: modelColor,
-      },
-      lineStyle: {
-        width: model.is_champion ? 2.5 : 1.8,
-        color: modelColor,
-      },
-      areaStyle: {
-        color: modelColor + (model.is_champion ? "33" : "18"),
-      },
     };
-  });
-
-  const option: EChartsOption = {
-    backgroundColor: "transparent",
-    tooltip: {
-      trigger: "item",
-      backgroundColor: isDark ? "#1B1924" : "#FFFFFF",
-      borderColor: isDark ? "#282534" : "#EAE7ED",
-      borderWidth: 1,
-      textStyle: {
-        color: isDark ? "#F2F1F6" : "#25232B",
-        fontSize: 12,
-      },
-      formatter: (params: unknown) => {
-        const item = params as {
-          name: string;
-          value: number[];
-        };
-        if (!item || !item.value) return "";
-        let res = `<div class="font-bold text-xs mb-1.5 pb-1 border-b ${
-          isDark ? "border-[#282534]" : "border-[#EAE7ED]"
-        }">${item.name}</div>`;
-        indicators.forEach((ind, i) => {
-          res += `
-            <div class="flex items-center justify-between gap-4 py-0.5 text-xs">
-              <span class="text-[#85818D] dark:text-[#A5A0AF]">${ind.name}:</span>
-              <span class="font-mono font-bold">${item.value[i].toFixed(3)}%</span>
-            </div>
-          `;
-        });
-        return res;
-      },
-    },
-    legend: {
-      top: 0,
-      right: 0,
-      icon: "roundRect",
-      itemWidth: 14,
-      itemHeight: 10,
-      textStyle: {
-        color: isDark ? "#A5A0AF" : "#85818D",
-        fontSize: 11,
-      },
-    },
-    radar: {
-      indicator: indicators,
-      shape: "polygon",
-      splitNumber: 4,
-      radius: "68%",
-      center: ["50%", "56%"],
-      axisName: {
-        color: isDark ? "#A5A0AF" : "#85818D",
-        fontSize: 11,
-        fontWeight: 600,
-      },
-      splitLine: {
-        lineStyle: {
-          color: isDark ? "#282534" : "#EAE7ED",
-        },
-      },
-      splitArea: {
-        show: true,
-        areaStyle: {
-          color: isDark
-            ? ["rgba(255, 255, 255, 0.01)", "rgba(255, 255, 255, 0.025)"]
-            : ["rgba(0, 0, 0, 0.01)", "rgba(0, 0, 0, 0.02)"],
-        },
-      },
-      axisLine: {
-        lineStyle: {
-          color: isDark ? "#282534" : "#EAE7ED",
-        },
-      },
-    },
-    series: [
-      {
-        name: "Model Profile",
-        type: "radar",
-        symbol: "circle",
-        symbolSize: 4,
-        data: seriesData,
-      },
-    ],
-  };
+  }, [activeThreshold, models, isDark]);
 
   return (
     <div className="rounded-2xl border border-[#EAE7ED] dark:border-[#282534] bg-white dark:bg-[#16151D] p-5 sm:p-6 shadow-subtle space-y-4">

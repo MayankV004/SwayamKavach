@@ -15,6 +15,38 @@ interface ModelPerformanceBarChartProps {
 type MetricView = "primary" | "auc" | "fpr" | "all";
 type ThresholdView = "calibrated" | "default";
 
+function getMetricDefinitions(metricView: MetricView) {
+  switch (metricView) {
+    case "primary":
+      return [
+        { key: "accuracy", label: "Accuracy", scale: "pct", min: 99.0 },
+        { key: "precision", label: "Precision", scale: "pct", min: 99.0 },
+        { key: "recall", label: "Recall", scale: "pct", min: 99.0 },
+        { key: "f1", label: "F1-Score", scale: "pct", min: 99.0 },
+      ];
+    case "auc":
+      return [
+        { key: "roc_auc", label: "ROC-AUC", scale: "pct", min: 99.5 },
+        { key: "pr_auc", label: "PR-AUC", scale: "pct", min: 99.5 },
+      ];
+    case "fpr":
+      return [
+        { key: "fpr", label: "False Positive Rate (FPR)", scale: "pct", min: 0.0, max: 2.0 },
+      ];
+    case "all":
+    default:
+      return [
+        { key: "accuracy", label: "Accuracy", scale: "pct", min: 98.5 },
+        { key: "precision", label: "Precision", scale: "pct", min: 98.5 },
+        { key: "recall", label: "Recall", scale: "pct", min: 98.5 },
+        { key: "f1", label: "F1-Score", scale: "pct", min: 98.5 },
+        { key: "roc_auc", label: "ROC-AUC", scale: "pct", min: 98.5 },
+        { key: "pr_auc", label: "PR-AUC", scale: "pct", min: 98.5 },
+        { key: "fpr", label: "FPR (Fall-out)", scale: "pct", min: 0.0 },
+      ];
+  }
+}
+
 export function ModelPerformanceBarChart({ models }: ModelPerformanceBarChartProps) {
   const { theme } = useDashboard();
   const [metricView, setMetricView] = useState<MetricView>("primary");
@@ -22,172 +54,151 @@ export function ModelPerformanceBarChart({ models }: ModelPerformanceBarChartPro
 
   const isDark = theme === "dark";
 
-  // Palette matching design system
-  const colors = {
-    DecisionTree: isDark ? "#38BDF8" : "#0284C7", // Sky
-    HistGradientBoosting: "#E76552", // Coral (Champion)
-    LightGBM: isDark ? "#A78BFA" : "#7C3AED", // Violet
-  };
+  const option: EChartsOption = React.useMemo(() => {
+    const colors = {
+      DecisionTree: isDark ? "#38BDF8" : "#0284C7", // Sky
+      HistGradientBoosting: "#E76552", // Coral (Champion)
+      LightGBM: isDark ? "#A78BFA" : "#7C3AED", // Violet
+    };
 
-  const getMetricDefinitions = () => {
-    switch (metricView) {
-      case "primary":
-        return [
-          { key: "accuracy", label: "Accuracy", scale: "pct", min: 99.0 },
-          { key: "precision", label: "Precision", scale: "pct", min: 99.0 },
-          { key: "recall", label: "Recall", scale: "pct", min: 99.0 },
-          { key: "f1", label: "F1-Score", scale: "pct", min: 99.0 },
-        ];
-      case "auc":
-        return [
-          { key: "roc_auc", label: "ROC-AUC", scale: "pct", min: 99.5 },
-          { key: "pr_auc", label: "PR-AUC", scale: "pct", min: 99.5 },
-        ];
-      case "fpr":
-        return [
-          { key: "fpr", label: "False Positive Rate (FPR)", scale: "pct", min: 0.0, max: 2.0 },
-        ];
-      case "all":
-      default:
-        return [
-          { key: "accuracy", label: "Accuracy", scale: "pct", min: 98.5 },
-          { key: "precision", label: "Precision", scale: "pct", min: 98.5 },
-          { key: "recall", label: "Recall", scale: "pct", min: 98.5 },
-          { key: "f1", label: "F1-Score", scale: "pct", min: 98.5 },
-          { key: "roc_auc", label: "ROC-AUC", scale: "pct", min: 98.5 },
-          { key: "pr_auc", label: "PR-AUC", scale: "pct", min: 98.5 },
-          { key: "fpr", label: "FPR (Fall-out)", scale: "pct", min: 0.0 },
-        ];
-    }
-  };
+    const metrics = getMetricDefinitions(metricView);
+    const categories = metrics.map((m) => m.label);
 
-  const metrics = getMetricDefinitions();
-  const categories = metrics.map((m) => m.label);
+    const series = models.map((model) => {
+      const metricSource =
+        thresholdView === "calibrated" ? model.calibrated_metrics : model.default_metrics;
 
-  const series = models.map((model) => {
-    const metricSource =
-      thresholdView === "calibrated" ? model.calibrated_metrics : model.default_metrics;
+      const data = metrics.map((m) => {
+        const val = (metricSource as unknown as Record<string, number>)[m.key];
+        return +(val * 100).toFixed(3);
+      });
 
-    const data = metrics.map((m) => {
-      const val = (metricSource as unknown as Record<string, number>)[m.key];
-      return +(val * 100).toFixed(3);
+      const modelColor = colors[model.id] || "#E76552";
+
+      return {
+        id: model.id,
+        name: model.name + (model.is_champion ? " (Champion)" : ""),
+        type: "bar" as const,
+        barMaxWidth: 30,
+        barGap: "25%",
+        itemStyle: {
+          color: modelColor,
+          borderRadius: [4, 4, 0, 0],
+        },
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 10,
+            shadowColor: modelColor + "55",
+          },
+        },
+        data,
+      };
     });
 
-    const modelColor = colors[model.id] || "#E76552";
-
     return {
-      name: model.name + (model.is_champion ? " (Champion)" : ""),
-      type: "bar",
-      barMaxWidth: 30,
-      barGap: "25%",
-      itemStyle: {
-        color: modelColor,
-        borderRadius: [4, 4, 0, 0],
-      },
-      emphasis: {
-        itemStyle: {
-          shadowBlur: 10,
-          shadowColor: modelColor + "55",
+      backgroundColor: "transparent",
+      tooltip: {
+        trigger: "axis",
+        axisPointer: {
+          type: "shadow",
+        },
+        backgroundColor: isDark ? "#1B1924" : "#FFFFFF",
+        borderColor: isDark ? "#282534" : "#EAE7ED",
+        borderWidth: 1,
+        textStyle: {
+          color: isDark ? "#F2F1F6" : "#25232B",
+          fontSize: 12,
+        },
+        formatter: (params: unknown) => {
+          type TooltipItem = { name?: string; seriesName?: string; value?: number | string; marker?: string };
+          const items: TooltipItem[] = Array.isArray(params)
+            ? (params as TooltipItem[])
+            : params
+            ? [params as TooltipItem]
+            : [];
+          if (items.length === 0) return "";
+          const first = items[0];
+          let res = `<div class="font-bold text-xs mb-1.5 pb-1 border-b ${
+            isDark ? "border-[#282534]" : "border-[#EAE7ED]"
+          }">${first?.name || ""}</div>`;
+          items.forEach((item) => {
+            if (!item || item.value == null) return;
+            res += `
+              <div class="flex items-center justify-between gap-4 py-0.5 text-xs">
+                <span class="flex items-center gap-1.5">
+                  ${item.marker || ""}
+                  <span>${item.seriesName || ""}</span>
+                </span>
+                <span class="font-mono font-bold">${Number(item.value).toFixed(3)}%</span>
+              </div>
+            `;
+          });
+          return res;
         },
       },
-      data,
+      legend: {
+        top: 0,
+        right: 0,
+        icon: "roundRect",
+        itemWidth: 14,
+        itemHeight: 10,
+        textStyle: {
+          color: isDark ? "#A5A0AF" : "#85818D",
+          fontSize: 11,
+        },
+      },
+      grid: {
+        left: "2%",
+        right: "2%",
+        bottom: "5%",
+        top: "16%",
+        containLabel: true,
+      },
+      xAxis: {
+        type: "category",
+        data: categories,
+        axisLine: {
+          lineStyle: {
+            color: isDark ? "#282534" : "#EAE7ED",
+          },
+        },
+        axisTick: { show: false },
+        axisLabel: {
+          color: isDark ? "#A5A0AF" : "#85818D",
+          fontSize: 11,
+          interval: 0,
+        },
+      },
+      yAxis: {
+        type: "value",
+        min: (val: { min: number }) => {
+          if (metricView === "fpr") return 0;
+          if (!val || isNaN(val.min) || !isFinite(val.min)) return 98.0;
+          return Math.max(98.0, Math.floor(val.min));
+        },
+        max: (val: { max: number }) => {
+          if (metricView === "fpr") {
+            if (!val || isNaN(val.max) || !isFinite(val.max)) return 2.0;
+            return Math.ceil(val.max * 1.2 * 10) / 10;
+          }
+          return 100;
+        },
+        axisLine: { show: false },
+        splitLine: {
+          lineStyle: {
+            color: isDark ? "#282534" : "#F0EFF4",
+            type: "dashed",
+          },
+        },
+        axisLabel: {
+          color: isDark ? "#85818D" : "#A5A0AF",
+          fontSize: 10,
+          formatter: "{value}%",
+        },
+      },
+      series,
     };
-  });
-
-  const option: EChartsOption = {
-    backgroundColor: "transparent",
-    tooltip: {
-      trigger: "axis",
-      backgroundColor: isDark ? "#1B1924" : "#FFFFFF",
-      borderColor: isDark ? "#282534" : "#EAE7ED",
-      borderWidth: 1,
-      textStyle: {
-        color: isDark ? "#F2F1F6" : "#25232B",
-        fontSize: 12,
-      },
-      formatter: (params: unknown) => {
-        const items = params as Array<{
-          seriesName: string;
-          marker: string;
-          value: number;
-          name: string;
-        }>;
-        if (!items || items.length === 0) return "";
-        let res = `<div class="font-bold text-xs mb-1.5 pb-1 border-b ${
-          isDark ? "border-[#282534]" : "border-[#EAE7ED]"
-        }">${items[0].name}</div>`;
-        items.forEach((item) => {
-          res += `
-            <div class="flex items-center justify-between gap-4 py-0.5 text-xs">
-              <span class="flex items-center gap-1.5">
-                ${item.marker}
-                <span>${item.seriesName}</span>
-              </span>
-              <span class="font-mono font-bold">${item.value.toFixed(3)}%</span>
-            </div>
-          `;
-        });
-        return res;
-      },
-    },
-    legend: {
-      top: 0,
-      right: 0,
-      icon: "roundRect",
-      itemWidth: 14,
-      itemHeight: 10,
-      textStyle: {
-        color: isDark ? "#A5A0AF" : "#85818D",
-        fontSize: 11,
-      },
-    },
-    grid: {
-      left: "2%",
-      right: "2%",
-      bottom: "5%",
-      top: "16%",
-      containLabel: true,
-    },
-    xAxis: {
-      type: "category",
-      data: categories,
-      axisLine: {
-        lineStyle: {
-          color: isDark ? "#282534" : "#EAE7ED",
-        },
-      },
-      axisTick: { show: false },
-      axisLabel: {
-        color: isDark ? "#A5A0AF" : "#85818D",
-        fontSize: 11,
-        interval: 0,
-      },
-    },
-    yAxis: {
-      type: "value",
-      min: (val: { min: number }) => {
-        if (metricView === "fpr") return 0;
-        return Math.max(98.0, Math.floor(val.min));
-      },
-      max: (val: { max: number }) => {
-        if (metricView === "fpr") return Math.ceil(val.max * 1.2 * 10) / 10;
-        return 100;
-      },
-      axisLine: { show: false },
-      splitLine: {
-        lineStyle: {
-          color: isDark ? "#282534" : "#F0EFF4",
-          type: "dashed",
-        },
-      },
-      axisLabel: {
-        color: isDark ? "#85818D" : "#A5A0AF",
-        fontSize: 10,
-        formatter: "{value}%",
-      },
-    },
-    series,
-  };
+  }, [metricView, thresholdView, models, isDark]);
 
   return (
     <div className="rounded-2xl border border-[#EAE7ED] dark:border-[#282534] bg-white dark:bg-[#16151D] p-5 sm:p-6 shadow-subtle space-y-4">
