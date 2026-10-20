@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -98,3 +100,34 @@ def get_benchmark(
     except Exception as e:
         logger.error("Error running benchmark (mode=%s): %s", mode, e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/models/benchmark")
+def get_model_benchmarks() -> dict[str, Any]:
+    """Retrieve verified offline training and validation benchmarks for baseline models.
+    
+    Returns metrics, calibration thresholds, confusion matrix counts, and attack sensitivity
+    for DecisionTree, HistGradientBoosting, and LightGBM directly from the release manifest.
+    """
+    backend_dir = Path(__file__).resolve().parent.parent.parent.parent.parent
+    r1_manifest = backend_dir / "releases" / "R1" / "manifest.json"
+    if not r1_manifest.exists():
+        raise HTTPException(status_code=404, detail="Release R1 manifest not found")
+    try:
+        with open(r1_manifest, encoding="utf-8") as f:
+            manifest_data = json.load(f)
+        return {
+            "release_id": manifest_data.get("release_id", "R1"),
+            "model_name": manifest_data.get("model_name"),
+            "champion_status": manifest_data.get("champion_status"),
+            "model_comparison": manifest_data.get("model_comparison", {}),
+            "sealed_test_metrics": manifest_data.get("metrics", {}).get("sealed_test", {}),
+            "sealed_test_per_attack_recall": manifest_data.get("metrics", {}).get("sealed_test_per_attack_recall", {}),
+            "class_map": manifest_data.get("class_map", {"0": "normal", "1": "attack"}),
+            "training_rows": manifest_data.get("training_rows", 147730),
+            "packaged_at": manifest_data.get("packaged_at"),
+        }
+    except Exception as e:
+        logger.error("Error reading release manifest: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to read model benchmarks: {e}") from e
+

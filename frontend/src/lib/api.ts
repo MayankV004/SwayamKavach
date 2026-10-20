@@ -10,6 +10,7 @@ import {
   LifecycleState,
   ScenarioRunResult,
 } from "@/types/contracts";
+import { ModelBenchmarkResponse } from "@/types/modelBenchmarks";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -105,6 +106,19 @@ export async function fetchBenchmarkReport(
     return await res.json();
   } catch (error) {
     console.error("Benchmark fetch error:", error);
+    return null;
+  }
+}
+
+export async function fetchModelBenchmarks(): Promise<ModelBenchmarkResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/experiments/models/benchmark`, {
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error("Failed to fetch model benchmarks");
+    return await res.json();
+  } catch (error) {
+    console.error("Model benchmark fetch error:", error);
     return null;
   }
 }
