@@ -3,12 +3,22 @@
 import React from "react";
 import { useDashboard } from "@/context/DashboardContext";
 import { CanaryControllerCard } from "@/components/dashboard/CanaryControllerCard";
+import { CandidateEvaluationComparisonCard } from "@/components/dashboard/CandidateEvaluationComparisonCard";
 import { Badge } from "@/components/ui/badge";
 import { Server } from "lucide-react";
 
 export default function CanaryPage() {
-  const { lifecycle, actingCanary, canaryActionStatus, advanceCanary, rollbackCanary, resetLifecycle } =
-    useDashboard();
+  const {
+    lifecycle,
+    actingCanary,
+    canaryActionStatus,
+    advanceCanary,
+    rollbackCanary,
+    resetLifecycle,
+    evaluationReport,
+    loadingEvaluation,
+    runComparison,
+  } = useDashboard();
 
   const isSlotAPrimary = lifecycle.active_slot === "A";
   const slotAIsChamp = isSlotAPrimary;
@@ -23,6 +33,13 @@ export default function CanaryPage() {
         onAdvanceCanary={advanceCanary}
         onRollbackCanary={rollbackCanary}
         onResetLifecycle={resetLifecycle}
+      />
+
+      {/* Pre-Promotion Statistical Gate & Non-Regression Evaluation Scoreboard */}
+      <CandidateEvaluationComparisonCard
+        report={evaluationReport}
+        loading={loadingEvaluation}
+        onRunComparison={() => runComparison(lifecycle.candidate_release || "R2-candidate")}
       />
 
       {/* Active Serving Topology & Local Endpoints */}

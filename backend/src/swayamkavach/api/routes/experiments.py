@@ -48,7 +48,7 @@ def run_scenario(
             case ScenarioType.SEVERE_ATTACK:
                 result = runner.run_severe_attack_scenario(db=db)
             case ScenarioType.FAULTY_CANDIDATE_REJECTION:
-                result = runner.run_faulty_candidate_rejection_scenario()
+                result = runner.run_faulty_candidate_rejection_scenario(db=db)
             case ScenarioType.CANARY_WATCHDOG_ROLLBACK:
                 result = runner.run_canary_watchdog_rollback_scenario(db=db)
             case ScenarioType.CORRUPTED_DATA_REJECTION:

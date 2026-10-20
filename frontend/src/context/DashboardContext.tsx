@@ -5,6 +5,7 @@ import {
   AlertRecord,
   BenchmarkReport,
   DamageFingerprint,
+  EvaluationReport,
   LifecycleState,
   RepairAction,
   ScenarioRunResult,
@@ -16,6 +17,8 @@ import {
   fetchLifecycleState,
   resetLifecycleState,
   fetchBenchmarkReport,
+  fetchLatestEvaluationReport,
+  runCandidateComparison,
   runDriftScenario,
   advanceCanaryRollout,
   rollbackCanaryRollout,
@@ -46,6 +49,8 @@ interface DashboardContextType {
   scenarioResult: ScenarioRunResult | null;
   benchmarkReport: BenchmarkReport | null;
   loadingBenchmark: boolean;
+  evaluationReport: EvaluationReport | null;
+  loadingEvaluation: boolean;
   lifecycle: LifecycleState;
   effectiveFingerprint: DamageFingerprint;
   effectiveAction: RepairAction;
@@ -54,6 +59,8 @@ interface DashboardContextType {
   streamFeedback: string | null;
   loadData: () => Promise<void>;
   refreshBenchmark: () => Promise<void>;
+  refreshEvaluation: () => Promise<void>;
+  runComparison: (candidateId?: string) => Promise<void>;
   sendTestBatch: () => Promise<void>;
   advanceCanary: () => Promise<void>;
   rollbackCanary: () => Promise<void>;
@@ -213,6 +220,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [benchmarkReport, setBenchmarkReport] = useState<BenchmarkReport | null>(null);
   const [loadingBenchmark, setLoadingBenchmark] = useState<boolean>(false);
 
+  const [evaluationReport, setEvaluationReport] = useState<EvaluationReport | null>(null);
+  const [loadingEvaluation, setLoadingEvaluation] = useState<boolean>(false);
+
   const [streamStatus, setStreamStatus] = useState<StreamStatus | null>(null);
   const [togglingStream, setTogglingStream] = useState<boolean>(false);
   const [streamFeedback, setStreamFeedback] = useState<string | null>(null);
@@ -263,6 +273,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
+      const ev = await fetchLatestEvaluationReport();
+      if (ev) setEvaluationReport(ev);
+    } catch (e) {
+      console.error(e);
+    }
+
+    try {
       const stream = await fetchStreamStatus();
       setStreamStatus(stream);
     } catch {
@@ -284,6 +301,30 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const refreshEvaluation = useCallback(async () => {
+    setLoadingEvaluation(true);
+    try {
+      const data = await fetchLatestEvaluationReport();
+      if (data) setEvaluationReport(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingEvaluation(false);
+    }
+  }, []);
+
+  const runComparison = useCallback(async (candidateId: string = "R2-candidate") => {
+    setLoadingEvaluation(true);
+    try {
+      const rep = await runCandidateComparison(candidateId, "R1");
+      setEvaluationReport(rep);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingEvaluation(false);
+    }
+  }, []);
+
   useEffect(() => {
     let ignore = false;
 
@@ -291,6 +332,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       await loadData();
       if (!ignore) {
         void refreshBenchmark();
+        void refreshEvaluation();
       }
     }
 
@@ -304,7 +346,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       ignore = true;
       clearInterval(interval);
     };
-  }, [loadData, refreshBenchmark, streamStatus?.any_active]);
+  }, [loadData, refreshBenchmark, refreshEvaluation, streamStatus?.any_active]);
+
 
   const sendTestBatch = async () => {
     setSubmittingBatch(true);
@@ -528,6 +571,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     scenarioResult?.fingerprint || lifecycle.last_fingerprint || DEFAULT_NOMINAL_FP;
   const effectiveAction: RepairAction =
     scenarioResult?.chosen_action || lifecycle.chosen_action || "A0";
+  const effectiveEvaluationReport: EvaluationReport | null =
+    (scenarioResult?.details?.eval_report as EvaluationReport | undefined) || evaluationReport;
 
   const clearScenario = () => {
     setScenarioResult(null);
@@ -570,6 +615,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         scenarioResult,
         benchmarkReport,
         loadingBenchmark,
+        evaluationReport: effectiveEvaluationReport,
+        loadingEvaluation,
         lifecycle,
         effectiveFingerprint,
         effectiveAction,
@@ -578,6 +625,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         streamFeedback,
         loadData,
         refreshBenchmark,
+        refreshEvaluation,
+        runComparison,
         sendTestBatch,
         advanceCanary,
         rollbackCanary,

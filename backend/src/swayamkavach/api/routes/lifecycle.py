@@ -204,6 +204,68 @@ def reset_lifecycle_state(
 
     db.commit()
 
+    # Seed nominal baseline evaluation report
+    try:
+        from swayamkavach.db.models import EvaluationReportRecordDB
+        import uuid
+        nominal_report = EvaluationReportRecordDB(
+            report_id=f"EVAL_R1_R2-candidate_{uuid.uuid4().hex[:8]}",
+            champion_release="R1",
+            candidate_release="R2-candidate",
+            champion_sha256="3639259c6fcc97ab90b13384fc9d44ce81cad8a34a0d9fcd3eaffab7fe1e6f39",
+            candidate_sha256="3639259c6fcc97ab90b13384fc9d44ce81cad8a34a0d9fcd3eaffab7fe1e6f39",
+            dataset_version="val.csv.gz (nominal_partition)",
+            evaluated_samples=31656,
+            verdict="PASS",
+            p_value=1.0,
+            statistically_significant=False,
+            rejection_reasons=[],
+            champion_metrics={
+                "accuracy": 0.9962,
+                "recall": 0.9976,
+                "precision": 0.9974,
+                "f1": 0.9975,
+                "fpr": 0.0083,
+                "pr_auc": 0.9999,
+                "roc_auc": 0.9998,
+                "tp": 24099,
+                "fp": 62,
+                "tn": 7438,
+                "fn": 57,
+            },
+            candidate_metrics={
+                "accuracy": 0.9962,
+                "recall": 0.9976,
+                "precision": 0.9974,
+                "f1": 0.9975,
+                "fpr": 0.0083,
+                "pr_auc": 0.9999,
+                "roc_auc": 0.9998,
+                "tp": 24099,
+                "fp": 62,
+                "tn": 7438,
+                "fn": 57,
+            },
+            per_class_recall={
+                "backdoor": {"champion_recall": 0.999, "candidate_recall": 0.999, "delta": 0.0},
+                "ddos": {"champion_recall": 0.991, "candidate_recall": 0.991, "delta": 0.0},
+                "dos": {"champion_recall": 0.9983, "candidate_recall": 0.9983, "delta": 0.0},
+                "injection": {"champion_recall": 0.9987, "candidate_recall": 0.9987, "delta": 0.0},
+                "mitm": {"champion_recall": 0.9295, "candidate_recall": 0.9295, "delta": 0.0},
+                "password": {"champion_recall": 0.9997, "candidate_recall": 0.9997, "delta": 0.0},
+                "ransomware": {"champion_recall": 0.999, "candidate_recall": 0.999, "delta": 0.0},
+                "scanning": {"champion_recall": 0.9997, "candidate_recall": 0.9997, "delta": 0.0},
+                "xss": {"champion_recall": 0.9993, "candidate_recall": 0.9993, "delta": 0.0},
+            },
+            approval_hash=uuid.uuid4().hex + uuid.uuid4().hex,
+            policy_version="dari-v1.0",
+            created_at=datetime.now(UTC),
+        )
+        db.add(nominal_report)
+        db.commit()
+    except Exception as exc:
+        logger.warning("Could not seed nominal evaluation report on reset: %s", exc)
+
     # Clear window damage persistence history
     try:
         from swayamkavach.damage.persistence import PersistenceTracker

@@ -6,6 +6,7 @@ import {
   AlertRecord,
   BatchReceiptResponse,
   BenchmarkReport,
+  EvaluationReport,
   LifecycleState,
   ScenarioRunResult,
 } from "@/types/contracts";
@@ -239,6 +240,38 @@ export async function stopAllStreams(): Promise<Record<string, unknown>> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: "Failed to stop all streams" }));
     throw new Error(err.detail || "Failed to stop all streams");
+  }
+  return await res.json();
+}
+
+export async function fetchLatestEvaluationReport(): Promise<EvaluationReport | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/evaluations/latest`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.status === "no_evaluation_run") return null;
+    return data;
+  } catch (err) {
+    console.error("Failed to fetch evaluation report:", err);
+    return null;
+  }
+}
+
+export async function runCandidateComparison(
+  candidateReleaseId: string = "R2-candidate",
+  championReleaseId: string = "R1"
+): Promise<EvaluationReport> {
+  const res = await fetch(`${API_BASE_URL}/evaluations/compare`, {
+    method: "POST",
+    headers: getControlHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      candidate_release_id: candidateReleaseId,
+      champion_release_id: championReleaseId,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Evaluation comparison failed" }));
+    throw new Error(err.detail || "Evaluation comparison failed");
   }
   return await res.json();
 }

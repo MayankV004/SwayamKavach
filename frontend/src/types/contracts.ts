@@ -149,3 +149,40 @@ export interface StreamStatus {
   both_active: boolean;
 }
 
+export interface MetricComparisonValues {
+  accuracy: number;
+  recall: number;
+  precision: number;
+  f1: number;
+  fpr: number;
+  pr_auc: number;
+  roc_auc: number;
+  tp?: number;
+  fp?: number;
+  tn?: number;
+  fn?: number;
+}
+
+export interface ClassRecallMetric {
+  champion_recall: number;
+  candidate_recall: number;
+  delta: number;
+}
+
+export interface EvaluationReport {
+  report_id: string;
+  champion_release: string;
+  candidate_release: string;
+  verdict: "PASS" | "FAIL" | "INCONCLUSIVE" | string;
+  p_value: number;
+  statistically_significant: boolean;
+  rejection_reasons: string[];
+  champion_metrics: MetricComparisonValues;
+  candidate_metrics: MetricComparisonValues;
+  per_class_recall_comparison: Record<string, ClassRecallMetric>;
+  evaluated_samples: number;
+  approval_hash: string;
+  created_at: string;
+  dataset_version?: string;
+}
+

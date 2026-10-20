@@ -274,6 +274,18 @@ def test_evaluation_approval_api_security_gates():
     )
     db = SessionLocal()
     try:
+        from swayamkavach.db.models import LifecycleStateRecordDB
+
+        lc = db.query(LifecycleStateRecordDB).first()
+        if not lc:
+            lc = LifecycleStateRecordDB(id=1, champion_release="R1", active_slot="A", canary_weight=0.0)
+            db.add(lc)
+        else:
+            lc.active_slot = "A"
+            lc.champion_release = "R1"
+            lc.candidate_release = None
+            lc.canary_weight = 0.0
+
         db.merge(
             EvaluationReportRecordDB(
                 report_id=pass_report.report_id,

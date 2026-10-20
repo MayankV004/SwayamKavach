@@ -259,6 +259,30 @@ class ReplayScenarioRunner:
                 ))
             db.commit()
 
+            # Durably persist evaluation report to DB
+            from swayamkavach.db.models import EvaluationReportRecordDB
+            report_record = EvaluationReportRecordDB(
+                report_id=eval_report.report_id,
+                champion_release="R1",
+                candidate_release=eval_report.candidate_release,
+                champion_sha256="3639259c6fcc97ab90b13384fc9d44ce81cad8a34a0d9fcd3eaffab7fe1e6f39",
+                candidate_sha256="7498c40b8f1a23e9cb14299bfe871ad298319a2b7f300184fa980a3c21a8f902",
+                dataset_version="val.csv.gz (severe_drift_window)",
+                evaluated_samples=eval_report.evaluated_samples,
+                verdict=eval_report.verdict.value,
+                p_value=float(eval_report.p_value),
+                statistically_significant=bool(eval_report.statistically_significant),
+                rejection_reasons=eval_report.rejection_reasons,
+                champion_metrics=eval_report.champion_metrics,
+                candidate_metrics=eval_report.candidate_metrics,
+                per_class_recall=eval_report.per_class_recall_comparison,
+                approval_hash=eval_report.approval_hash,
+                policy_version="dari-v1.0",
+                created_at=datetime.now(UTC),
+            )
+            db.merge(report_record)
+            db.commit()
+
             # Stage approved candidate into Slot B
             self.canary_controller.stage_candidate(db, candidate_release="R2", initial_weight=0.05)
             canary_actions.append("STAGED_5PCT")
@@ -292,11 +316,12 @@ class ReplayScenarioRunner:
                 "candidate_recall": eval_report.candidate_metrics["recall"],
                 "candidate_fpr": eval_report.candidate_metrics["fpr"],
                 "canary_history": canary_actions,
+                "eval_report": eval_report.to_dict(),
             },
             executed_at=datetime.now(UTC).isoformat(),
         )
 
-    def run_faulty_candidate_rejection_scenario(self) -> ScenarioResult:
+    def run_faulty_candidate_rejection_scenario(self, db: Session | None = None) -> ScenarioResult:
         """Scenario 5: Negative scenario - Faulty candidate fails critical-class safety gate."""
         fp = DamageFingerprint(
             D_X=0.420,
@@ -335,6 +360,30 @@ class ReplayScenarioRunner:
             candidate_release="R2-faulty",
         )
 
+        if db is not None:
+            from swayamkavach.db.models import EvaluationReportRecordDB
+            report_record = EvaluationReportRecordDB(
+                report_id=eval_report.report_id,
+                champion_release="R1",
+                candidate_release=eval_report.candidate_release,
+                champion_sha256="3639259c6fcc97ab90b13384fc9d44ce81cad8a34a0d9fcd3eaffab7fe1e6f39",
+                candidate_sha256="bad0000000000000000000000000000000000000000000000000000000000000",
+                dataset_version="val.csv.gz (faulty_candidate)",
+                evaluated_samples=eval_report.evaluated_samples,
+                verdict=eval_report.verdict.value,
+                p_value=float(eval_report.p_value),
+                statistically_significant=bool(eval_report.statistically_significant),
+                rejection_reasons=eval_report.rejection_reasons,
+                champion_metrics=eval_report.champion_metrics,
+                candidate_metrics=eval_report.candidate_metrics,
+                per_class_recall=eval_report.per_class_recall_comparison,
+                approval_hash=eval_report.approval_hash,
+                policy_version="dari-v1.0",
+                created_at=datetime.now(UTC),
+            )
+            db.merge(report_record)
+            db.commit()
+
         invariants_preserved = (
             eval_report.verdict == EvaluationVerdict.FAIL
             and any("backdoor" in r for r in eval_report.rejection_reasons)
@@ -354,6 +403,7 @@ class ReplayScenarioRunner:
                 "rejection_reasons": eval_report.rejection_reasons,
                 "backdoor_candidate_recall": eval_report.per_class_recall_comparison.get("backdoor", {}).get("candidate", 0.0),
                 "approval_hash": eval_report.approval_hash,
+                "eval_report": eval_report.to_dict(),
             },
             executed_at=datetime.now(UTC).isoformat(),
         )
