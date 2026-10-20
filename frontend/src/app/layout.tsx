@@ -20,28 +20,28 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('swayamkavach-theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('swayamkavach-theme');var isDark=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches);var root=document.documentElement;if(isDark){root.classList.add('dark');root.style.colorScheme='dark';root.style.backgroundColor='#0F0E13';}else{root.classList.remove('dark');root.style.colorScheme='light';root.style.backgroundColor='#F5F4F7';}}catch(e){}})();`,
           }}
         />
       </head>
-      <body className="h-screen overflow-hidden bg-[#F5F4F7] dark:bg-[#0F0E13] text-[#25232B] dark:text-[#F2F1F6] font-sans antialiased selection:bg-[#E76552] selection:text-white transition-colors duration-300">
+      <body className="h-screen overflow-hidden bg-[#F5F4F7] dark:bg-[#0F0E13] text-[#25232B] dark:text-[#F2F1F6] font-sans antialiased selection:bg-[#E76552] selection:text-white">
         <DashboardProvider>
           {/* Outer Viewport Canvas with Consistent Padding */}
-          <div className="h-screen w-full bg-[#F5F4F7] dark:bg-[#0F0E13] p-2 sm:p-4 lg:p-6 flex flex-col items-center justify-start overflow-hidden transition-colors duration-300">
+          <div className="h-screen w-full bg-[#F5F4F7] dark:bg-[#0F0E13] p-2 sm:p-4 lg:p-6 flex flex-col items-center justify-start overflow-hidden">
             {/* Softly Rounded Main Application Container (Reference Layout) */}
-            <div className="w-full max-w-[1720px] bg-white dark:bg-[#16151D] rounded-[24px] sm:rounded-[32px] border border-[#EAE7ED] dark:border-[#282534] shadow-canvas overflow-hidden flex flex-col h-full max-h-full transition-colors duration-300">
+            <div className="w-full max-w-[1720px] bg-white dark:bg-[#16151D] rounded-[24px] sm:rounded-[32px] border border-[#EAE7ED] dark:border-[#282534] shadow-canvas overflow-hidden flex flex-col h-full max-h-full">
               {/* Compact Top Navigation Bar */}
               <Header />
 
               {/* Inner Body (Fixed Compact Sidebar Rail + Main Content Area) */}
-              <div className="flex flex-1 min-h-0 overflow-hidden bg-white dark:bg-[#16151D] relative transition-colors duration-300">
+              <div className="flex flex-1 min-h-0 overflow-hidden bg-white dark:bg-[#16151D] relative">
                 {/* Floating Navigation Rail (Fixed, Not Scrollable) */}
                 <div className="shrink-0 p-3 sm:p-4 flex flex-col items-center justify-start z-20 h-full overflow-hidden select-none">
                   <Sidebar />
                 </div>
 
                 {/* Main Scrollable Content Area */}
-                <div className="flex flex-col flex-1 min-w-0 overflow-y-auto bg-white dark:bg-[#16151D] transition-colors duration-300">
+                <div className="flex flex-col flex-1 min-w-0 overflow-y-auto bg-white dark:bg-[#16151D]">
                   <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full max-w-[1560px] mx-auto space-y-6 sm:space-y-8 page-fluid-enter">
                     <PageHeader />
                     {children}

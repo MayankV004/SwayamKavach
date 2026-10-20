@@ -160,12 +160,22 @@ export function CanaryControllerCard({
             variant="default"
             size="sm"
             onClick={onAdvanceCanary}
-            disabled={actingCanary || !lifecycle.candidate_release || canaryPct >= 100}
-            className="flex-1 bg-[#E76552] hover:bg-[#D8523E] text-white text-xs font-bold h-9.5 rounded-full gap-2 shadow-coral-soft cursor-pointer active:scale-98 transition-all"
+            disabled={actingCanary || canaryPct >= 100}
+            className="flex-1 bg-[#E76552] hover:bg-[#D8523E] text-white text-xs font-bold h-9.5 rounded-full gap-2 shadow-coral-soft cursor-pointer active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ArrowRight className="h-4 w-4" />
             <span>
-              {actingCanary ? "Updating Routing Weights..." : "Advance Canary Stage (5% → 25% → 50% → 100%)"}
+              {actingCanary
+                ? "Updating Routing Weights..."
+                : canaryPct === 0
+                ? "Stage Candidate R2 (5% Pilot)"
+                : canaryPct === 5
+                ? "Advance Canary Stage (→ 25%)"
+                : canaryPct === 25
+                ? "Advance Canary Stage (→ 50%)"
+                : canaryPct === 50
+                ? "Advance to Promotion (→ 100% Champion)"
+                : "Canary Flight Complete (100% Promoted)"}
             </span>
           </Button>
 

@@ -124,6 +124,26 @@ export async function runDriftScenario(
   return await res.json();
 }
 
+export async function stageCandidateRollout(
+  candidateReleaseId: string = "R2"
+): Promise<LifecycleState> {
+  const comp = await runCandidateComparison(candidateReleaseId, "R1");
+  const approveRes = await fetch(`${API_BASE_URL}/evaluations/approve`, {
+    method: "POST",
+    headers: getControlHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      report_id: comp.report_id,
+      approval_hash: comp.approval_hash,
+      operator_id: "lead_operator",
+    }),
+  });
+  if (!approveRes.ok) {
+    const err = await approveRes.json().catch(() => ({ detail: "Candidate approval failed" }));
+    throw new Error(err.detail || "Candidate approval failed");
+  }
+  return await fetchLifecycleState();
+}
+
 export async function advanceCanaryRollout(): Promise<LifecycleState> {
   const res = await fetch(`${API_BASE_URL}/deployment/canary/advance`, {
     method: "POST",

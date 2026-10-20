@@ -13,6 +13,7 @@ import {
   fetchLifecycleState,
   fetchBenchmarkReport,
   runDriftScenario,
+  stageCandidateRollout,
   advanceCanaryRollout,
   rollbackCanaryRollout,
   ingestFlowBatch,
@@ -195,10 +196,24 @@ export function useDashboardState() {
     setActingCanary(true);
     setCanaryActionStatus(null);
     try {
-      const state = await advanceCanaryRollout();
-      setCanaryActionStatus(
-        `Advanced canary rollout to ${(state.canary_weight * 100).toFixed(0)}%`
-      );
+      const canaryPct = Math.round((lifecycle?.canary_weight || 0) * 100);
+      if (!lifecycle?.candidate_release || canaryPct === 0) {
+        setCanaryActionStatus("Staging Candidate R2 into Slot B (5% pilot)...");
+        const state = await stageCandidateRollout("R2");
+        setLifecycle(state);
+        setCanaryActionStatus(
+          "Candidate R2 staged in Slot B: 5% pilot traffic routed."
+        );
+      } else {
+        const state = await advanceCanaryRollout();
+        setLifecycle(state);
+        const newPct = Math.round(state.canary_weight * 100);
+        setCanaryActionStatus(
+          newPct >= 100
+            ? "Candidate promoted to 100% Champion!"
+            : `Advanced canary rollout to ${newPct}%`
+        );
+      }
       await loadData();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);

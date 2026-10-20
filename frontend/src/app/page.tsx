@@ -487,7 +487,7 @@ export default function OverviewPage() {
                   onClick={advanceCanary}
                   className="text-xs h-7.5 px-3.5 rounded-full bg-white dark:bg-[#16151D] hover:bg-[#F5F4F7] dark:hover:bg-[#201D2A] text-[#25232B] dark:text-[#F2F1F6] font-medium border-[#EAE7ED] dark:border-[#282534] cursor-pointer shadow-2xs"
                 >
-                  Advance Stage
+                  {canaryPct === 0 ? "Stage Candidate (5%)" : "Advance Stage"}
                 </Button>
                 <Button
                   variant="outline"

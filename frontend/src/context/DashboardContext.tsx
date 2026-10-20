@@ -20,6 +20,7 @@ import {
   fetchLatestEvaluationReport,
   runCandidateComparison,
   runDriftScenario,
+  stageCandidateRollout,
   advanceCanaryRollout,
   rollbackCanaryRollout,
   ingestFlowBatch,
@@ -83,6 +84,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         if (stored === "dark" || stored === "light") {
           return stored;
         }
+        if (document.documentElement.classList.contains("dark")) {
+          return "dark";
+        }
         if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
           return "dark";
         }
@@ -93,10 +97,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     return "light";
   });
 
-  // Sync document element class with theme state
+  // Sync document element class and color-scheme with theme state
   useEffect(() => {
     if (typeof document !== "undefined") {
       document.documentElement.classList.toggle("dark", theme === "dark");
+      document.documentElement.style.colorScheme = theme;
+      document.documentElement.classList.add("theme-ready");
     }
   }, [theme]);
 
@@ -126,6 +132,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem("swayamkavach-theme", targetTheme);
           if (typeof document !== "undefined") {
             document.documentElement.classList.toggle("dark", targetTheme === "dark");
+            document.documentElement.style.colorScheme = targetTheme;
           }
         } catch {
           // ignore
@@ -428,14 +435,28 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setActingCanary(true);
     setCanaryActionStatus(null);
     try {
-      const state = await advanceCanaryRollout();
-      setCanaryActionStatus(
-        `Advanced canary rollout to ${(state.canary_weight * 100).toFixed(0)}%`
-      );
+      const canaryPct = Math.round((lifecycle?.canary_weight || 0) * 100);
+      if (!lifecycle.candidate_release || canaryPct === 0) {
+        setCanaryActionStatus("Staging Candidate R2 into Slot B (5% pilot)...");
+        const state = await stageCandidateRollout("R2");
+        setLifecycle(state);
+        setCanaryActionStatus(
+          "Candidate R2 staged in Slot B: 5% pilot traffic routed."
+        );
+      } else {
+        const state = await advanceCanaryRollout();
+        setLifecycle(state);
+        const newPct = Math.round(state.canary_weight * 100);
+        setCanaryActionStatus(
+          newPct >= 100
+            ? "Candidate promoted to 100% Champion!"
+            : `Advanced canary rollout to ${newPct}%`
+        );
+      }
       await loadData();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
-      setCanaryActionStatus(`Advance rejected: ${message}`);
+      setCanaryActionStatus(`Canary action rejected: ${message}`);
     } finally {
       setActingCanary(false);
     }
