@@ -11,12 +11,14 @@ import {
   ScenarioRunResult,
   StreamStatus,
 } from "@/types/contracts";
+import { ModelBenchmarkResponse } from "@/types/modelBenchmarks";
 import {
   fetchHealth,
   fetchAlerts,
   fetchLifecycleState,
   resetLifecycleState,
   fetchBenchmarkReport,
+  fetchModelBenchmarks,
   fetchLatestEvaluationReport,
   runCandidateComparison,
   runDriftScenario,
@@ -50,6 +52,8 @@ interface DashboardContextType {
   scenarioResult: ScenarioRunResult | null;
   benchmarkReport: BenchmarkReport | null;
   loadingBenchmark: boolean;
+  modelBenchmarks: ModelBenchmarkResponse | null;
+  loadingModelBenchmarks: boolean;
   evaluationReport: EvaluationReport | null;
   loadingEvaluation: boolean;
   lifecycle: LifecycleState;
@@ -60,6 +64,7 @@ interface DashboardContextType {
   streamFeedback: string | null;
   loadData: () => Promise<void>;
   refreshBenchmark: () => Promise<void>;
+  refreshModelBenchmarks: () => Promise<void>;
   refreshEvaluation: () => Promise<void>;
   runComparison: (candidateId?: string) => Promise<void>;
   sendTestBatch: () => Promise<void>;
@@ -227,6 +232,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [benchmarkReport, setBenchmarkReport] = useState<BenchmarkReport | null>(null);
   const [loadingBenchmark, setLoadingBenchmark] = useState<boolean>(false);
 
+  const [modelBenchmarks, setModelBenchmarks] = useState<ModelBenchmarkResponse | null>(null);
+  const [loadingModelBenchmarks, setLoadingModelBenchmarks] = useState<boolean>(false);
+
   const [evaluationReport, setEvaluationReport] = useState<EvaluationReport | null>(null);
   const [loadingEvaluation, setLoadingEvaluation] = useState<boolean>(false);
 
@@ -287,6 +295,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
+      const mb = await fetchModelBenchmarks();
+      if (mb) setModelBenchmarks(mb);
+    } catch (e) {
+      console.error(e);
+    }
+
+    try {
       const stream = await fetchStreamStatus();
       setStreamStatus(stream);
     } catch {
@@ -305,6 +320,18 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       console.error(e);
     } finally {
       setLoadingBenchmark(false);
+    }
+  }, []);
+
+  const refreshModelBenchmarks = useCallback(async () => {
+    setLoadingModelBenchmarks(true);
+    try {
+      const data = await fetchModelBenchmarks();
+      if (data) setModelBenchmarks(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingModelBenchmarks(false);
     }
   }, []);
 
@@ -636,6 +663,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         scenarioResult,
         benchmarkReport,
         loadingBenchmark,
+        modelBenchmarks,
+        loadingModelBenchmarks,
         evaluationReport: effectiveEvaluationReport,
         loadingEvaluation,
         lifecycle,
@@ -646,6 +675,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         streamFeedback,
         loadData,
         refreshBenchmark,
+        refreshModelBenchmarks,
         refreshEvaluation,
         runComparison,
         sendTestBatch,

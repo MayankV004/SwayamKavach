@@ -201,3 +201,21 @@ def test_experiments_api_routes():
     assert "dari" in data["results"]
     assert "static_champion" in data["results"]
     assert data["results"]["dari"]["unnecessary_retrain_rate"] == 0.0
+
+    # 4. Fetch baseline model comparison benchmarks via API
+    models_resp = client.get("/api/v1/experiments/models/benchmark")
+    assert models_resp.status_code == 200
+    models_data = models_resp.json()
+    assert models_data["release_id"] == "R1"
+    assert "model_comparison" in models_data
+    comparison = models_data["model_comparison"]
+    assert "DecisionTree" in comparison
+    assert "HistGradientBoosting" in comparison
+    assert "LightGBM" in comparison
+    # Verify confusion matrix keys and calibrated metrics exist
+    for m in ["DecisionTree", "HistGradientBoosting", "LightGBM"]:
+        cal_metrics = comparison[m]["val_metrics_calibrated"]
+        assert "accuracy" in cal_metrics
+        assert "f1" in cal_metrics
+        assert "tp" in cal_metrics and "fp" in cal_metrics and "tn" in cal_metrics and "fn" in cal_metrics
+

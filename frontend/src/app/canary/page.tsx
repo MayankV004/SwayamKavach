@@ -3,6 +3,7 @@
 import React from "react";
 import { useDashboard } from "@/context/DashboardContext";
 import { CanaryControllerCard } from "@/components/dashboard/CanaryControllerCard";
+import { InteractiveLangGraphFlow } from "@/components/dashboard/langgraph/InteractiveLangGraphFlow";
 import { CandidateEvaluationComparisonCard } from "@/components/dashboard/CandidateEvaluationComparisonCard";
 import { Badge } from "@/components/ui/badge";
 import { Server } from "lucide-react";
@@ -34,6 +35,9 @@ export default function CanaryPage() {
         onRollbackCanary={rollbackCanary}
         onResetLifecycle={resetLifecycle}
       />
+
+      {/* Interactive LangGraph Orchestration & Decision Flow */}
+      <InteractiveLangGraphFlow />
 
       {/* Pre-Promotion Statistical Gate & Non-Regression Evaluation Scoreboard */}
       <CandidateEvaluationComparisonCard

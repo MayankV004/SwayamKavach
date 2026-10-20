@@ -3,6 +3,7 @@
 import React from "react";
 import { useDashboard } from "@/context/DashboardContext";
 import { BenchmarkScoreboard } from "@/components/dashboard/BenchmarkScoreboard";
+import { ModelBenchmarkSuite } from "@/components/dashboard/ModelBenchmarkSuite";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
@@ -81,12 +82,15 @@ export default function BenchmarksPage() {
         </div>
       </div>
 
-      {/* Empirical Benchmark Scoreboard */}
+      {/* Empirical Benchmark Scoreboard (Policy Comparison) */}
       <BenchmarkScoreboard
         benchmarkReport={benchmarkReport}
         loadingBenchmark={loadingBenchmark}
         onRefreshBenchmark={refreshBenchmark}
       />
+
+      {/* Model Benchmark Suite (DecisionTree, HistGradientBoosting, LightGBM Comparison & Confusion Matrices) */}
+      <ModelBenchmarkSuite />
     </div>
   );
 }
